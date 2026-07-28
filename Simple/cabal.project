@@ -1,0 +1,4 @@
+packages: .
+optimization: 2
+benchmarks: true
+profiling: true

@@ -1,3 +1,5 @@
+module Examples where
+
 import Helpers
 import BothFolds
 import System.Random
@@ -32,10 +34,6 @@ randMat2D m n gen = go m gen [] where
         where (x, g') = randVec n gen
 
 type FullyConnectedNetwork = (InputLayer :+: DenseLayer) 
-
-trainMany :: (InputLayer :<: f, AlgFwd f, AlgBwd f f) 
-          => [(Values, Values)] -> Free f a -> Free f a
-trainMany dataSet nn = foldr train nn dataSet
 
 -------------------------------- Training -------------------------------------
 
@@ -101,7 +99,7 @@ runAllEpochs numEpochs = do
       net' <- runEpoch net
       go (n - 1) net'
 
-main = do
+runSineTraining = do
     nn <- runAllEpochs numberOfIterations
 
     putStrLn "finished training the network with samples. Testing outputs: "

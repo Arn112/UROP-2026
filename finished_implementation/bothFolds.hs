@@ -1,6 +1,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-#LANGUAGE DeriveAnyClass, DeriveGeneric#-}
 
 module BothFolds where
 
@@ -47,7 +48,7 @@ sigmoid = map (\x -> 1 / (1 + exp (-x)))
 -- inverse then differential sigmoid function:
 sigmoid' :: [Double] -> [Double]
 -- sigmoid' = map (\x -> let y = log (x / (1-x)) in y * (1-y))
-sigmoid' = map (\x -> x * (1 - x)) -- this is indeed correct for inverse then derivative
+sigmoid' = map (\x -> x * (1 - x)) -- both are correct, this is stable
 
 -- this time we define the layers to be different types:
 data InputLayer a = InputLayer deriving Functor
@@ -223,3 +224,8 @@ train (inp, desOut) nn =
         h vals = BackProp vals [] [] desOut
 
     in (backwardPass . h . forwardPass) inp
+
+
+trainMany :: (InputLayer :<: f, AlgFwd f, AlgBwd f f) 
+          => [(Values, Values)] -> Free f a -> Free f a
+trainMany dataSet nn = foldr train nn dataSet
