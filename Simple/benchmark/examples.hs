@@ -21,7 +21,7 @@ sineTestOutputs :: Values
 sineTestOutputs = map (\x -> (sin x + 1) / 2) sineTestInputs
 
 miniBatchSize = 80
-numberOfIterations = 300
+numberOfIterations = 10
 
 ----------------------------------- Helpers -----------------------------------
 mse :: [Values] -> [Values] -> Double
