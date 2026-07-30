@@ -1,0 +1,7 @@
+dist/
+dist-newstyle/
+*.o
+cabal.project.local
+.hp
+.eventlog
+.html
