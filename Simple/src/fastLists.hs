@@ -9,7 +9,7 @@ import Data.Array.Unboxed
 -- Under the hood it's functionally equivalent to Idx2 Int# Int#, just avoids
 -- us have to deal with the # methods. !Int forces the args
 data Idx2 = Idx2 {-# UNPACK #-} !Int {-# UNPACK #-} !Int 
-    deriving (Eq, Ord, Ix, Show)
+    deriving (Eq, Ord, Ix) --, Show)
 -- deriving Ix gives it the required methods to be used as an index in an array
 -- i.e. our index can now be of type Idx2
 

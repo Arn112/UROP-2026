@@ -16,7 +16,7 @@ sineTestOutputs :: Vectors
 sineTestOutputs = amap (\x -> (sin x + 1) / 2) sineTestInputs
 
 miniBatchSize :: Int = 800
-numberOfIterations :: Int = 100
+numberOfIterations :: Int = 50
 
 -- ----------------------------------- Helpers -----------------------------------
 mse :: [Vectors] -> [Vectors] -> Double
@@ -34,6 +34,8 @@ singletonUA x = listArray (Idx2 1 1, Idx2 1 1) [x]
 
 type FullyConnectedNetwork = (InputLayer :+: DenseLayer) 
 
+showVectors :: Vectors -> String
+showVectors vs = show (elems vs)
 -- -------------------------------- Training -------------------------------------
 
 -- fcNetworkPair :: RandomGen g => g -> (Free FullyConnectedNetwork a, g)

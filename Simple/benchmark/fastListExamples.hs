@@ -52,19 +52,16 @@ runAllEpochs numEpochs = do
       net' <- runEpoch net
       go (n - 1) net'
 
--- runSineTraining :: IO (Free FullyConnectedNetwork a)
-runSineTraining = do
-    nn <- runAllEpochs numberOfIterations
-    putStrLn "finished training the network with samples. Testing outputs: "
-    -- print ("sin (1.0) + 1 / 2: " ++ show (head $ forwardProp nn (singletonUA 1.0)))
-    -- print ("sin (0.5) + 1 / 2 : " ++ show (head $ forwardProp nn (singletonUA 0.5)))
-    -- print ("sin (pi/6) + 1 / 2 : " ++ show (head $ forwardProp nn (singletonUA (pi/6))))
-    -- -- print $ show (map (head . head . forwardProp nn . singleton) sineTestInputs)
+-- trainSineForBench :: IO [Vectors]
+-- trainSineForBench = do 
+--     (nn :: Free FullyConnectedNetwork a) <- runAllEpochs numberOfIterations
+--     let testOutputs = map (forwardProp nn . singletonUA) (elems sineTestInputs) 
+--     return testOutputs
 
-trainSineForBench :: IO [[Vectors]]
-trainSineForBench = do 
+trainSineForBenchOutput = do
     (nn :: Free FullyConnectedNetwork a) <- runAllEpochs numberOfIterations
-    let testOutputs = map (forwardProp nn . singletonUA) (elems sineTestInputs)
+    let testOutputs = map ((! Idx2 1 1) . head . forwardProp nn . singletonUA) (elems sineTestInputs)
+    print testOutputs
     return testOutputs
 
 main :: IO ()
@@ -74,13 +71,14 @@ main :: IO ()
 --         bgroup "sine" [bench "training" $ nfIO runSineTraining]
 --     ]
 main = do
-    testOutputs <- trainSineForBench
+    testOutputs <- trainSineForBenchOutput
     -- print (concatMap sum testOutputs)
     -- print testOutputs
     -- let !_ = force testOutputs
     !_ <- evaluate (force testOutputs)
     return ()
 
+-- to test:
 -- cabal run ann-warray-bench -- +RTS -hy -l-agu
 -- eventlog2html ann-warray-bench.eventlog
 -- open -a 'Brave Browser' ann-warray-bench.eventlog.html
