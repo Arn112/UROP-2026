@@ -20,8 +20,8 @@ sineTestInputs = [-pi, -pi + 0.01 .. pi]
 sineTestOutputs :: Values
 sineTestOutputs = map (\x -> (sin x + 1) / 2) sineTestInputs
 
-miniBatchSize = 80
-numberOfIterations = 10
+miniBatchSize = 800
+numberOfIterations = 100
 
 ----------------------------------- Helpers -----------------------------------
 mse :: [Values] -> [Values] -> Double

@@ -35,17 +35,17 @@ license:            BSD-3-Clause
 license-file:       LICENSE
 
 -- The package author(s).
-author:             Jamie Willis
+author:             Arnav Maniyar
 
 -- An email address to which users can send suggestions, bug reports, and patches.
-maintainer:         j.willis19@imperial.ac.uk
+maintainer:         avm25@ic.ac.uk
 
 -- A copyright notice.
 -- copyright:
 -- category:
 
 -- Extra files to be distributed with the package, such as examples or a README.
-extra-source-files: CHANGELOG.md
+-- extra-source-files: CHANGELOG.md
 
 library ann-lib
     exposed-modules: BothFolds, Helpers, FastLists
@@ -54,25 +54,15 @@ library ann-lib
     default-language: GHC2021
     default-extensions: Strict
 
--- executable strictness
---     -- .hs or .lhs file containing the Main module.
---     main-is:          examples.hs
-
---     -- Modules included in this executable, other than Main.
---     -- other-modules:    
-
---     -- LANGUAGE extensions used by modules in this package.
---     -- other-extensions:
-
---     -- Other library packages from which modules are imported.
---     build-depends:    base >=4.12.0.0, strictness-lib
-
---     -- Directories containing source files.
---     hs-source-dirs:   folding_over_nns/finished_implementation
-
---     -- Base language which the package is written in.
---     default-language: GHC2021
---     ghc-options: -fprof-auto
+-- creating another library for the arrays one, because ik BothFolds and
+-- FastLists are contradictory:
+library ann-warray-lib
+    -- watch out, cursed naming
+    exposed-modules: Helpers, FastLists, FastListTraining
+    build-depends: base >=4.12.0.0, array, random
+    hs-source-dirs: src
+    default-language: GHC2021
+    default-extensions: Strict
 
 benchmark ann-bench
     type: exitcode-stdio-1.0
@@ -88,3 +78,19 @@ benchmark ann-bench
     main-is: examples.hs
     ghc-options: -rtsopts
     -- if ever stuck then cabal clean
+
+benchmark ann-warray-bench
+    type: exitcode-stdio-1.0
+    build-depends:
+        base,
+        tasty,
+        tasty-bench,
+        deepseq,
+        ann-warray-lib,
+        random,
+        array
+    hs-source-dirs: benchmark
+    default-language: GHC2021
+    main-is: fastListExamples.hs
+    ghc-options: -rtsopts
+    default-extensions: Strict

@@ -1,39 +1,19 @@
-module FastListTests where
+module Main where
 
 import Helpers
 import FastLists
+import FastListTraining
 import System.Random
 import System.IO
 import Data.List
 import Data.Array.Unboxed
------------------------------ IO, hyperparameters -----------------------------
+import Control.DeepSeq (force, NFData, rnf)
+import Control.Exception (evaluate)
 
-sineTestInputs :: Vectors
-sineTestInputs = let xs = [-pi, -pi + 0.01 .. pi] 
-                in listArray (Idx2 1 1, Idx2 1 (length xs)) xs
+import Test.Tasty.Bench (bench, bgroup, defaultMain, env, nf, whnf, nfIO, whnfIO)
 
-sineTestOutputs :: Vectors
-sineTestOutputs = amap (\x -> (sin x + 1) / 2) sineTestInputs
-
-miniBatchSize = 80
-numberOfIterations = 50
-
--- ----------------------------------- Helpers -----------------------------------
-mse :: [Vectors] -> [Vectors] -> Double
-mse expected actual = sum (map (foldlArray' (+) 0.0 . amap (\x -> x*x)) $ zipWith (^-^) expected actual) / fromIntegral (length expected)
-
-randVectors :: RandomGen g => Idx2 -> Idx2 -> g -> (Vectors, g)
-randVectors lo hi gen = go (range (lo, hi)) gen []
-  where
-    go [] g xs     = (listArray (lo, hi) xs, g)
-    go (_:is) g xs = let (x, g') = randomR (-0.5, 0.5) g
-                     in go is g' (x : xs)
-
-singletonUA :: Double -> UArray Idx2 Double
-singletonUA x = listArray (Idx2 1 1, Idx2 1 1) [x]
-
-type FullyConnectedNetwork = (InputLayer :+: DenseLayer) 
-
+instance NFData (UArray Idx2 Double) where
+    rnf arr = arr `seq` ()
 -------------------------------- Training -------------------------------------
 
 fcNetworkPair :: RandomGen g => g -> (Free FullyConnectedNetwork a, g)
@@ -75,18 +55,32 @@ runAllEpochs numEpochs = do
 -- runSineTraining :: IO (Free FullyConnectedNetwork a)
 runSineTraining = do
     nn <- runAllEpochs numberOfIterations
-    -- return nn
-    -- let testOutputs = map (head . head . forwardProp nn . singleton) sineTestInputs
-    -- let testOutputs = map (forwardProp nn . singleton) sineTestInputs
-    -- return testOutputs
-    -- return nn
-
     putStrLn "finished training the network with samples. Testing outputs: "
-    print ("sin (1.0) + 1 / 2: " ++ show (head $ forwardProp nn (singletonUA 1.0)))
-    print ("sin (0.5) + 1 / 2 : " ++ show (head $ forwardProp nn (singletonUA 0.5)))
-    print ("sin (pi/6) + 1 / 2 : " ++ show (head $ forwardProp nn (singletonUA (pi/6))))
-    -- print $ show (map (head . head . forwardProp nn . singleton) sineTestInputs)
+    -- print ("sin (1.0) + 1 / 2: " ++ show (head $ forwardProp nn (singletonUA 1.0)))
+    -- print ("sin (0.5) + 1 / 2 : " ++ show (head $ forwardProp nn (singletonUA 0.5)))
+    -- print ("sin (pi/6) + 1 / 2 : " ++ show (head $ forwardProp nn (singletonUA (pi/6))))
+    -- -- print $ show (map (head . head . forwardProp nn . singleton) sineTestInputs)
 
+trainSineForBench :: IO [[Vectors]]
+trainSineForBench = do 
+    (nn :: Free FullyConnectedNetwork a) <- runAllEpochs numberOfIterations
+    let testOutputs = map (forwardProp nn . singletonUA) (elems sineTestInputs)
+    return testOutputs
 
+main :: IO ()
+-- main = return ()
+-- main = defaultMain
+--     [
+--         bgroup "sine" [bench "training" $ nfIO runSineTraining]
+--     ]
+main = do
+    testOutputs <- trainSineForBench
+    -- print (concatMap sum testOutputs)
+    -- print testOutputs
+    -- let !_ = force testOutputs
+    !_ <- evaluate (force testOutputs)
+    return ()
 
-
+-- cabal run ann-warray-bench -- +RTS -hy -l-agu
+-- eventlog2html ann-warray-bench.eventlog
+-- open -a 'Brave Browser' ann-warray-bench.eventlog.html
