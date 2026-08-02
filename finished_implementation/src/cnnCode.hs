@@ -7,6 +7,9 @@ module CnnCode where
 import Helpers
 import BothFolds
 import Data.List
+import Data.List.Utils
+
+import Debug.Trace
 
 type Filter = [[Double]]
 type SpatExt = Int -- spatial extent
@@ -46,6 +49,8 @@ convolution vals filter b =
         windows = map (\x -> map (\y -> map (take m . drop y) ((take m . drop x) vals)) nums) nums
         featureMap = map (map (sum . map sum . zipWith (^*^) filter)) windows
     in map (relu . map (b +)) featureMap
+-- side note: this operation is actually called cross correlation but whatever
+-- https://glassboxmedicine.com/2019/07/26/convolution-vs-cross-correlation/
 
 
 -- convTestVals = [[0,0,1,1,0,0],[0,1,0,0,1,0],[1,0,0,0,0,1],[1,0,0,0,0,1],[0,1,0,0,1,0],[0,0,1,1,0,0]]
@@ -180,7 +185,7 @@ backwardMLP ws bs (BackPropMLP (Vec al : Vec alPrev : as) ws' ds' desiredOutput)
         -- ∂C/∂w_jk = a_k(l-1) * delta_j(l)
         blNew = bs ^-^ map (*learningRate) dlNew
         -- ∂C/∂b_j = delta_j(l)
-    in (wlNew, blNew, dlNew)
+    in trace ("dlNew: " ++ show dlNew) (wlNew, blNew, dlNew)
 
 instance (DenseLayer :<: f) => AlgBwdNew DenseLayer f where
     algBwdNew (DenseLayer ws bs nextLayersFunc) backPropForCurr = 
@@ -195,14 +200,22 @@ instance (DenseLayer :<: f) => AlgBwdNew DenseLayer f where
 ------------ ConvLayer: --------------
 
 -- Source of the below function - https://stackoverflow.com/a/8700618
+-- takes a vector and turns it into a square matrix of size n
 reshape :: Int -> [a] -> [[a]]
 reshape n = takeWhile (not.null) . map (take n) . iterate (drop n)
 
--- pads with a single layer of zeroes enveloping the entire matrix.
-padMatrix :: [Values] -> [Values]
-padMatrix mat = [emptyRow] ++ mat' ++ [emptyRow] where
-    emptyRow = replicate (length (head mat) + 2) 0.0
-    mat' = map (\x -> [0.0] ++ x ++ [0.0]) mat
+-- -- pads with a single layer of zeroes enveloping the entire matrix.
+-- padMatrix :: [Values] -> [Values]
+-- padMatrix mat = [emptyRow] ++ mat' ++ [emptyRow] where
+--     emptyRow = replicate (length (head mat) + 2) 0.0
+--     mat' = map (\x -> [0.0] ++ x ++ [0.0]) mat
+
+-- pads with n layers of zeroes enveloping the entire matrix.
+padMatrixN :: [Values] -> Int -> [Values]
+padMatrixN mat n = nEmptyRows ++ mat' ++ nEmptyRows where
+    emptyRow = replicate (length (head mat) + 2*n) 0.0
+    nEmptyRows = replicate n emptyRow
+    mat' = map (\x -> let rp = replicate n 0.0 in rp ++ x ++ rp) mat
 
 -- rotates the matrix by 180 degrees (i.e. pi radians)
 rotatePi :: [Values] -> [Values]
@@ -212,7 +225,7 @@ backwardConvLayer :: Filter -> Double -> BackPropNew -> (Filter, Double, Tensor)
 -- again the head of the list is the output of the current layer
 -- so the output of the conv. layer is ReLU(Z)
 backwardConvLayer filter bias (BackPropCNN ((Mat reluZ) : (Mat x) : ts) (Mat dLdC)) = 
-        -- ∂L/∂Z = ∂L/∂C * ∂C/∂Z, ∂C/∂Z_mn = 1 if Z_mn > 0, 0 otherwise
+        -- ∂L/∂Z = ∂L/∂(Re(Z)) * ∂(Re(Z))/∂Z, ∂(Re(Z_mn))/∂Z_mn = 1 if Z_mn > 0, 0 otherwise
         -- keep in mind the * is pointwise multiplication because we did everything
         -- one index at a time then just made the matrix notation to keep it cleaner
     let dCdZ = map (map (\x -> if x > 0.0 then 1.0 else 0.0)) reluZ
@@ -222,8 +235,8 @@ backwardConvLayer filter bias (BackPropCNN ((Mat reluZ) : (Mat x) : ts) (Mat dLd
         -- ∂L/∂B = ∑ ∂L/∂Z
         delB = sum $ concat dLdZ
         -- icba writing it out but this is also derivable
-        delX = convolution (padMatrix dLdZ) (rotatePi filter) 0.0
-    in (delK, delB, Mat delX)
+        delX = convolution (padMatrixN dLdZ (length filter - 1)) (rotatePi filter) 0.0
+    in trace ("dldz: " ++ show dLdZ ++ "dcdz: " ++ show dCdZ ++ "dLdC: " ++ show dLdC) (delK, delB, Mat delX)
 
 instance (ConvLayer :<: f) => AlgBwdNew ConvLayer f where
     algBwdNew (ConvLayer filter bias nextLayersFunc) backPropForCurr = 
@@ -233,7 +246,7 @@ instance (ConvLayer :<: f) => AlgBwdNew ConvLayer f where
             backPropForNext = BackPropCNN {cnnAs = tail (cnnAs backPropForCurr),
                                            cnnDs' = delX}
         in Op (inj (ConvLayer updFilter updBias (nextLayersFunc backPropForNext)))
--- NEED TO ACCOUNT FOR THE RELU!!!!!
+-- NEED TO ACCOUNT FOR THE RELU!!!!! (i think i have?)
 
 ------------ PoolLayer: --------------
 windows :: [Values] -> Int -> Int -> [[[Values]]]
@@ -247,14 +260,21 @@ reversePool :: Tensor -> Tensor -> Tensor -> Int -> Int -> [Values]
 reversePool (Mat inp) (Mat out) (Mat dLdZ) spe str = 
     let n = length inp
         wns = concat $ windows inp spe str -- create the windows again
+        scaledDLdZ = zipWith (\wdw repl -> repl / fromIntegral (countElem repl (concat wdw))) wns (concat dLdZ)
+        -- scaledDLdZ = zipWith (\wdw repl -> repl / (max (fromIntegral (countElem repl (concat wdw))) 1.0)) wns (concat dLdZ)
         xs = zip (concat out) (concat dLdZ) -- result of pool and what to sub.
+        -- xs = zip (concat out) scaledDLdZ -- result of pool and what to sub.
         ys = zipWith (\zs (seen,repl) -> map (map (\x -> if x == seen then repl else 0)) zs) wns xs
-        -- replace window positions with either derivative or value
-    in concatMap (map concat . transpose) (reshape spe ys) -- turn windows format back into matrix format
+        -- replace window positions with either derivative or 0
+    in trace ("inp: " ++ show inp ++ ", out: " ++ show out ++ ", dLdZ: " ++ show dLdZ) concatMap (map concat . transpose) (reshape spe ys) 
+        -- turn windows format back into matrix format
+
 -- remember how the backprop for pooling works: if any element in the input 
 -- (to the pool layer) was equal to the maximum in that window, it is replaced
 -- with the derivative value of that pool's position. Otherwise, it is 0.-
--- (this is for calculating ∂L/∂X btw)
+-- (this is for calculating ∂L/∂X btw). Small caveat: for repeat entries either
+-- split equally or just give to one. There is some mathematical reason but idk
+-- here I find it is easier to just split equally. 
 
 -- it's inconsistent because I'm pattern matching on the backPropForCurr ik
 -- will fix it later i swear, will have to rewrite this anyways
@@ -269,13 +289,21 @@ instance (PoolLayer :<: f) => AlgBwdNew PoolLayer f where
 ------------ FlattenLayer: --------------
 
 instance (FlattenLayer :<: f) => AlgBwdNew FlattenLayer f where
+    -- algBwdNew (FlattenLayer height width nextLayersFunc) backPropForCurr = 
     algBwdNew (FlattenLayer height width nextLayersFunc) backPropForCurr = 
-        let flattened = mlpDs' backPropForCurr 
+        let Vec al = head $ mlpAs backPropForCurr 
+            flattened = (transpose (mlpWs' backPropForCurr) #> (mlpDs' backPropForCurr))
+            -- flattened = mlpDs' backPropForCurr
             reshapedMat = reshape width flattened -- reshape the vector of errors into a matrix
             -- ignore the element we added to the AS during forward prop - repeated result
             backPropForNext = BackPropCNN {cnnDs' = Mat reshapedMat, cnnAs = tail (mlpAs backPropForCurr)}
-
-        in Op (inj (FlattenLayer height width (nextLayersFunc backPropForNext)))
+        in trace ("mlpWs': " ++ (show $ mlpWs' backPropForCurr) ++ ", mlpDs': " ++ (show $ mlpDs' backPropForCurr) ) Op (inj (FlattenLayer height width (nextLayersFunc backPropForNext)))
+-- ok this needs a bit more explanation than I initially thought. 
+-- The thing we need to reshape is actually the error of the INPUT layer, but
+-- previous I was calculating the error of the layer after that. So you just do
+-- the same thing as the MLP backprop for the dlNew case, but without the 
+-- sigmoid because there was no calculation even done in this layer hence
+-- no activation function was used. 
 
 --------------- The actual final backprop function ----------------------------
 genBwdNew :: (InputLayer :<: f) => a -> (BackPropNew -> Free f a) 

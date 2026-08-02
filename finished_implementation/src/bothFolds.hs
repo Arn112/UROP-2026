@@ -8,7 +8,7 @@ import Helpers
 import Data.List
 
 ----------------------  defining types ----------------------------------------
-learningRate = 0.4 :: Double -- best results were with 0.6, 1 - 12 - 1 setup
+learningRate = 1.0 :: Double -- best results were with 0.6, 1 - 12 - 1 setup
 
 type Values = [Double]
 type Biases = [Double]
