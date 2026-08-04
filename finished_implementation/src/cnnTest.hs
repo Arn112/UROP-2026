@@ -3,7 +3,6 @@
 module CnnTest where
 
 import CnnCode
-import BothFolds
 import Helpers
 
 type ConvNetwork =  (InputLayer :+: DenseLayer :+: ConvLayer :+: PoolLayer :+: FlattenLayer)
@@ -39,6 +38,10 @@ pattern DenseLayer' ws bs nn' <- (prj -> Just (DenseLayer ws bs nn'))
 pattern PoolLayer' sext sde nn' <- (prj -> Just (PoolLayer sext sde nn'))
 pattern ConvLayer' filter bias nn' <- (prj -> Just (ConvLayer filter bias nn'))
 pattern FlattenLayer' h w nn' <- (prj -> Just (FlattenLayer h w nn'))
+-- we need these patterns to avoid nesting cases. this is because prj
+-- seems to only be able to resolve the :<: functors (f, g, etc.) when we're 
+-- once (i.e. after the first case it thinks it's got it figured out). So 
+-- instead each pattern does it separately. 
 
 printNetworkCNN :: Free ConvNetwork a -> IO ()
 printNetworkCNN (Op cnn) = do
@@ -69,6 +72,5 @@ printNetworkCNN (Op cnn) = do
             putStrLn "--------------"
             printNetworkCNN nn'
 
-        
-        
-        
+
+

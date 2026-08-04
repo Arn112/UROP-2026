@@ -54,7 +54,7 @@ extra-doc-files:    CHANGELOG.md
 common warnings
     ghc-options: -Wall
 
-library
+library cnn-lib
     -- Import common warning flags.
     import:           warnings
 
@@ -62,7 +62,7 @@ library
     exposed-modules:  CnnTest, CnnCode
 
     -- Modules included in this library but not exported.
-    other-modules: Helpers, BothFolds
+    other-modules: Helpers
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions: MultiParamTypeClasses, FlexibleInstances
@@ -79,3 +79,10 @@ library
     default-language: GHC2021
 
     -- default-extensions: 
+
+library mnist-CnnTest
+    exposed-modules: Mnist
+    other-modules: CnnCode, CnnTest, Helpers
+    build-depends: base ^>=4.21.0.0, bytestring, random, zlib, MissingH, array
+    hs-source-dirs: mnist_test, src
+    default-language: GHC2021

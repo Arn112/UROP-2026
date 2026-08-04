@@ -5,15 +5,68 @@
 module CnnCode where
 
 import Helpers
-import BothFolds
+-- import BothFolds
 import Data.List
 import Data.List.Utils
-
 import Debug.Trace
 
 type Filter = [[Double]]
 type SpatExt = Int -- spatial extent
 type Stride = Int
+
+----------------------  defining types ----------------------------------------
+learningRate = 0.01 :: Double -- best results were with 0.6, 1 - 12 - 1 setup
+
+type Values = [Double]
+type Biases = [Double]
+type Weights = [[Double]]
+type Deltas = [Double]
+
+
+-- vector addition:
+(^+^) :: [Double] -> [Double] -> [Double]
+v1 ^+^ v2 = zipWith (+) v1 v2
+
+-- vector subtraction:
+(^-^) :: [Double] -> [Double] -> [Double]
+v1 ^-^ v2 = zipWith (-) v1 v2
+
+-- vector multiplication (i.e. hadamard product):
+(^*^) :: [Double] -> [Double] -> [Double]
+v1 ^*^ v2 = zipWith (*) v1 v2
+
+-- matrix subtraction:
+(-#-) :: [[Double]] -> [[Double]] -> [[Double]]
+matx -#- maty = zipWith (^-^) matx maty
+
+-- outer product: (u >< v = u . v^T)
+(><) :: [Double] -> [Double] -> [[Double]]
+v1 >< v2 = map (\x -> map (x *) v2) v1
+
+-- matrix-vector multiplication:
+(#>) :: [[Double]] -> [Double] -> [Double]
+mat #> v = map (sum . zipWith (*) v) mat
+
+-- sigmoid function:
+sigmoid :: [Double] -> [Double]
+sigmoid = map (\x -> 1 / (1 + exp (-x))) 
+
+-- inverse then differential sigmoid function:
+sigmoid' :: [Double] -> [Double]
+-- sigmoid' = map (\x -> let y = log (x / (1-x)) in y * (1-y))
+sigmoid' = map (\x -> x * (1 - x)) -- this is indeed correct for inverse then derivative
+
+-- this time we define the layers to be different types:
+data InputLayer a = InputLayer deriving Functor
+data DenseLayer a = DenseLayer Weights Biases a deriving Functor
+
+-- now we can define smart constructors:
+inputLayer :: (InputLayer :<: f) => Free f a
+inputLayer = Op (inj InputLayer)
+
+denseLayer :: (DenseLayer :<: f) => Weights -> Biases -> Free f ()
+denseLayer ws bs = Op (inj $ DenseLayer ws bs (Pure ()))
+
 
 -------------- Operations ------------------
 -- Disclaimer: These operations work but to say they are inefficient is an
@@ -185,7 +238,7 @@ backwardMLP ws bs (BackPropMLP (Vec al : Vec alPrev : as) ws' ds' desiredOutput)
         -- ∂C/∂w_jk = a_k(l-1) * delta_j(l)
         blNew = bs ^-^ map (*learningRate) dlNew
         -- ∂C/∂b_j = delta_j(l)
-    in trace ("dlNew: " ++ show dlNew) (wlNew, blNew, dlNew)
+    in (wlNew, blNew, dlNew)
 
 instance (DenseLayer :<: f) => AlgBwdNew DenseLayer f where
     algBwdNew (DenseLayer ws bs nextLayersFunc) backPropForCurr = 
@@ -236,7 +289,7 @@ backwardConvLayer filter bias (BackPropCNN ((Mat reluZ) : (Mat x) : ts) (Mat dLd
         delB = sum $ concat dLdZ
         -- icba writing it out but this is also derivable
         delX = convolution (padMatrixN dLdZ (length filter - 1)) (rotatePi filter) 0.0
-    in trace ("dldz: " ++ show dLdZ ++ "dcdz: " ++ show dCdZ ++ "dLdC: " ++ show dLdC) (delK, delB, Mat delX)
+    in (delK, delB, Mat delX)
 
 instance (ConvLayer :<: f) => AlgBwdNew ConvLayer f where
     algBwdNew (ConvLayer filter bias nextLayersFunc) backPropForCurr = 
@@ -266,7 +319,7 @@ reversePool (Mat inp) (Mat out) (Mat dLdZ) spe str =
         -- xs = zip (concat out) scaledDLdZ -- result of pool and what to sub.
         ys = zipWith (\zs (seen,repl) -> map (map (\x -> if x == seen then repl else 0)) zs) wns xs
         -- replace window positions with either derivative or 0
-    in trace ("inp: " ++ show inp ++ ", out: " ++ show out ++ ", dLdZ: " ++ show dLdZ) concatMap (map concat . transpose) (reshape spe ys) 
+    in concatMap (map concat . transpose) (reshape spe ys) 
         -- turn windows format back into matrix format
 
 -- remember how the backprop for pooling works: if any element in the input 
@@ -292,12 +345,12 @@ instance (FlattenLayer :<: f) => AlgBwdNew FlattenLayer f where
     -- algBwdNew (FlattenLayer height width nextLayersFunc) backPropForCurr = 
     algBwdNew (FlattenLayer height width nextLayersFunc) backPropForCurr = 
         let Vec al = head $ mlpAs backPropForCurr 
-            flattened = (transpose (mlpWs' backPropForCurr) #> (mlpDs' backPropForCurr))
+            flattened = (transpose (mlpWs' backPropForCurr) #> mlpDs' backPropForCurr)
             -- flattened = mlpDs' backPropForCurr
             reshapedMat = reshape width flattened -- reshape the vector of errors into a matrix
             -- ignore the element we added to the AS during forward prop - repeated result
             backPropForNext = BackPropCNN {cnnDs' = Mat reshapedMat, cnnAs = tail (mlpAs backPropForCurr)}
-        in trace ("mlpWs': " ++ (show $ mlpWs' backPropForCurr) ++ ", mlpDs': " ++ (show $ mlpDs' backPropForCurr) ) Op (inj (FlattenLayer height width (nextLayersFunc backPropForNext)))
+        in Op (inj (FlattenLayer height width (nextLayersFunc backPropForNext)))
 -- ok this needs a bit more explanation than I initially thought. 
 -- The thing we need to reshape is actually the error of the INPUT layer, but
 -- previous I was calculating the error of the layer after that. So you just do
