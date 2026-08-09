@@ -64,6 +64,24 @@ library ann-warray-lib
     default-language: GHC2021
     default-extensions: Strict
 
+library nnets
+    exposed-modules: NNets
+    other-modules:  NNets.Common, 
+                    NNets.Common.Algebras,
+                    NNets.Common.BackProp,
+                    NNets.Common.Coproduct,
+                    NNets.Common.Free,
+                    NNets.Common.Numeric,
+                    NNets.Common.Numeric.Types,
+                    NNets.Common.Numeric.Vectors,
+                    NNets.Layers,
+                    NNets.Layers.DenseLayer,
+                    NNets.Layers.InputLayer
+    build-depends: base >=4.12.0.0, array, random
+    hs-source-dirs: src
+    default-language: GHC2021
+    default-extensions: Strict
+
 benchmark ann-bench
     type: exitcode-stdio-1.0
     build-depends:
@@ -86,11 +104,13 @@ benchmark ann-warray-bench
         tasty,
         tasty-bench,
         deepseq,
-        ann-warray-lib,
+        -- ann-warray-lib,
+        nnets,
         random,
         array
     hs-source-dirs: benchmark
     default-language: GHC2021
     main-is: fastListExamples.hs
-    ghc-options: -rtsopts
+    ghc-options:    -rtsopts
+                    -- -optl-Wl
     default-extensions: Strict
