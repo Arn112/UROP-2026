@@ -104,7 +104,6 @@ benchmark ann-warray-bench
         tasty,
         tasty-bench,
         deepseq,
-        -- ann-warray-lib,
         nnets,
         random,
         array
@@ -112,5 +111,4 @@ benchmark ann-warray-bench
     default-language: GHC2021
     main-is: fastListExamples.hs
     ghc-options:    -rtsopts
-                    -- -optl-Wl
     default-extensions: Strict

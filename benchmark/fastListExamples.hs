@@ -1,8 +1,5 @@
 module Main where
 
--- import Helpers
--- import FastLists
--- import FastListTraining
 import NNets
 import System.Random
 import System.IO
@@ -13,9 +10,6 @@ import Control.DeepSeq (force, NFData, rnf)
 import Control.Exception (evaluate)
 
 import Test.Tasty.Bench (bench, bgroup, defaultMain, env, nf, whnf, nfIO, whnfIO)
-
--- instance NFData (UArray Idx2 Double) where
---     rnf arr = arr `seq` ()
 
 -- we need these instances here because for the benchmarks to work
 instance NFData Vector where
@@ -29,11 +23,6 @@ instance NFData Matrix where
 -- some performance issues but it isn't too major since it's only during initialisation,
 -- which occurs once. 
 randVector :: Int -> IO Vector
--- randVector len = let gen = mkStdGen 67 in go len gen []
---     where
---         go 0 g xs = toVector xs
---         go n g xs = let (x, g') = randomR (-0.5, 0.5) g
---                         in go (n-1) g' (x : xs)
 randVector len = 
     do  gen <- newStdGen
         return $ go len gen []
@@ -47,12 +36,6 @@ randVector len =
 -- some performance issues but it isn't too major since it's only during initialisation,
 -- which occurs once. 
 randMatrix :: Int -> Int -> IO Matrix
--- randMatrix w h = let gen = mkStdGen 42 in go w h gen []
---     where
---         go 0 0 g xs     = listArray (Idx2 0 0, Idx2 (h-1) (w-1)) xs
---         go 0 h' g xs    = go w (h'-1) g xs
---         go w' h' g xs   = let (x, g') = randomR (-0.5, 0.5) g
---                             in go (w'-1) h' g' (x : xs)
 randMatrix w h =
     do  gen <- newStdGen
         return $ go w h gen [[]]
@@ -111,23 +94,16 @@ runAllEpochs numEpochs = do
       net' <- runEpoch net
       go (n - 1) net'
 
--- trainSineForBench :: IO [Vectors]
--- trainSineForBench = do 
---     (nn :: Free FullyConnectedNetwork a) <- runAllEpochs numberOfIterations
---     let testOutputs = map (forwardProp nn . singletonUA) (elems sineTestInputs) 
---     return testOutputs
-
 trainSineForBenchOutput = do
     (nn :: Free FullyConnectedNetwork a) <- runAllEpochs numberOfIterations
     let testOutputs = map (flip unsafeAt 0 . head . forwardProp nn . toVector . (:[])) (elems sineTestInputs)
-    print testOutputs
+    -- print testOutputs
     return testOutputs
 
 main :: IO ()
--- main = return ()
 -- main = defaultMain
 --     [
---         bgroup "sine" [bench "training" $ nfIO runSineTraining]
+--         bgroup "sine" [bench "training" $ nfIO trainSineForBenchOutput]
 --     ]
 main = do
     testOutputs <- trainSineForBenchOutput

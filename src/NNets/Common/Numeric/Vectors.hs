@@ -27,10 +27,19 @@ Custom index types strict in its arguments to avoid laziness.
 Unpack means the ints are stored directly with constructors (not as ptrs). 
 Under the hood, functionally equv. to Idx2 Int# Int#, but saves hassle of dealing with # methods.
 
-For Idx1, keep it data for now, and replace with newtype later to see where bang patterns
-would be required exactly
+For Idx1, when it was a data Idx1 = Idx1 {-# UNPACK #-} !Int, took like 1.5 MB memory. Replaced with
+newtype, and now it's gone (total memory also decreased). Strictness isn't even allowed and the Unpack
+makes no difference either. 
+
+If unpacked only acts on constructors, then it makes sense that it does nothing for newtypes, because
+there is no constructor. However, could it not just inline in the use site (for a strict type, precond.)
+
+https://github.com/tibbe/talks/blob/master/zurihac-2015/slides.md, apparently small strict types are 
+unpacked automatically, so maybe that's why removing it doesn't matter? However, it's only for strict types, 
+and Int itself is not strict? Is GHC in some way optimising the Int here to be strict depending on how
+we're using it, or does it just not matter because we never do any crazy calculations with the indexes anyways?
 -}
-data Idx1 = Idx1 {-# UNPACK #-} !Int
+newtype Idx1 = Idx1 Int
     deriving (Eq, Ord, Ix, Show)
 
 data Idx2 = Idx2 {-# UNPACK #-} !Int {-# UNPACK #-} !Int 
