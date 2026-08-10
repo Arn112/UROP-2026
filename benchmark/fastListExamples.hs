@@ -22,28 +22,25 @@ instance NFData Matrix where
 -- useful for initialising biases. The fact that this uses listArray may contribute to
 -- some performance issues but it isn't too major since it's only during initialisation,
 -- which occurs once. 
-randVector :: Int -> IO Vector
-randVector len = 
-    do  gen <- newStdGen
-        return $ go len gen []
-    where
-        go 0 g xs = toVector xs
-        go n g xs = let (x, g') = randomR (-0.5, 0.5) g
-                    in  go (n-1) g' (x : xs)
+randBias :: Int -> IO Vector
+randBias len = 
+    return $ toVector $ replicate len 0.0
 
 -- Creates a matrix of a given size initialised with random numbers from -0.5 to 0.5
 -- useful for initialising weights. The fact that this uses listArray may contribute to
 -- some performance issues but it isn't too major since it's only during initialisation,
 -- which occurs once. 
-randMatrix :: Int -> Int -> IO Matrix
-randMatrix w h =
+-- We use Xavier weight initialisation.
+randWeight :: Int -> Int -> IO Matrix
+randWeight w h =
     do  gen <- newStdGen
         return $ go w h gen [[]]
     where
         go 0 0 g xs             = toMatrix xs
         go 0 h' g xs            = go w (h'-1) g ([]:xs)
-        go w' h' g (row : rows) = let (x, g') = randomR (-0.5, 0.5) g
-                                    in go (w'-1) h' g' ((x : row) : rows)
+        go w' h' g (row : rows) = let   xavierRange = (1.0 / sqrt (fromIntegral w))
+                                        (x, g') = randomR (-xavierRange, xavierRange) g
+                                  in    go (w'-1) h' g' ((x : row) : rows)
 
 mse :: [Vector] -> [Vector] -> Double
 mse expected actual = sum (map (foldlArray' (+) 0.0 . amap (\x -> x*x)) $ zipWith (^-^) expected actual) / fromIntegral (length expected)
@@ -62,10 +59,10 @@ sineTestOutputs = amap (\x -> (sin x + 1) / 2) sineTestInputs
 
 fcNetworkPair :: IO (Free FullyConnectedNetwork a)
 fcNetworkPair = do
-    w1 <- randMatrix 12 1
-    b1 <- randVector 1
-    w2 <- randMatrix 1 12
-    b2 <- randVector 12  
+    w1 <- randWeight 12 1
+    b1 <- randBias 1
+    w2 <- randWeight 1 12
+    b2 <- randBias 12  
     return $ do denseLayer w1 b1
                 denseLayer w2 b2
                 inputLayer
@@ -97,7 +94,7 @@ runAllEpochs numEpochs = do
 trainSineForBenchOutput = do
     (nn :: Free FullyConnectedNetwork a) <- runAllEpochs numberOfIterations
     let testOutputs = map (flip unsafeAt 0 . head . forwardProp nn . toVector . (:[])) (elems sineTestInputs)
-    -- print testOutputs
+    print testOutputs
     return testOutputs
 
 main :: IO ()
