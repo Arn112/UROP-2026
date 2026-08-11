@@ -36,11 +36,3 @@ class AlgBwd g f where
 instance (AlgBwd g f, AlgBwd h f) => AlgBwd (g :+: h) f where
     algBwd (L fx) = algBwd fx
     algBwd (R gx) = algBwd gx
-
--- banana split property of folds: any pair of folds can be combined to a 
--- single fold which generates a pair:
-pairGen :: (a -> b) -> (a -> c) -> a -> (b, c)
-pairGen f g x = (f x, g x)
-
-pairAlg :: Functor f => (f b -> b) -> (f c -> c) -> f (b, c) -> (b, c)
-pairAlg algB algC fbc = (algB (fmap fst fbc), algC (fmap snd fbc))

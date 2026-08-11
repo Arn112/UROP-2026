@@ -8,6 +8,7 @@ import Data.Array.Unboxed
 import Data.Array.Base
 import Control.DeepSeq (force, NFData, rnf)
 import Control.Exception (evaluate)
+import Control.Concurrent (threadDelay)
 
 import Test.Tasty.Bench (bench, bgroup, defaultMain, env, nf, whnf, nfIO, whnfIO)
 
@@ -93,8 +94,8 @@ runAllEpochs numEpochs = do
 
 trainSineForBenchOutput = do
     (nn :: Free FullyConnectedNetwork a) <- runAllEpochs numberOfIterations
-    let testOutputs = map (flip unsafeAt 0 . head . forwardProp nn . toVector . (:[])) (elems sineTestInputs)
-    print testOutputs
+    let testOutputs = amap (flip unsafeAt 0 . head . forwardProp nn . toVector . (:[])) sineTestInputs
+    -- print testOutputs
     return testOutputs
 
 main :: IO ()
@@ -106,8 +107,8 @@ main = do
     testOutputs <- trainSineForBenchOutput
     -- print (concatMap sum testOutputs)
     -- print testOutputs
-    -- let !_ = force testOutputs
-    !_ <- evaluate (force testOutputs)
+    -- !_ <- evaluate testOutputs'
+    let !testOutputs' = force testOutputs
     return ()
 
 -- to test:

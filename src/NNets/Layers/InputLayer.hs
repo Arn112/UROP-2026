@@ -12,7 +12,7 @@ module NNets.Layers.InputLayer where
 
 import NNets.Common
 
-data InputLayer a = InputLayer deriving Functor
+data InputLayer k = InputLayer deriving Functor
 
 -- smart constructor to inject into the free structure, depending on the type of the
 -- final network (f):

@@ -13,7 +13,7 @@ module NNets.Layers.DenseLayer ( denseLayer, DenseLayer ) where
 import NNets.Common
 import Data.Array.Unboxed
 
-data DenseLayer a = DenseLayer Weights Biases a deriving Functor
+data DenseLayer k = DenseLayer {-# UNPACK #-} !Weights {-# UNPACK #-} !Biases k deriving Functor
 
 -- smart constructor:
 denseLayer :: (DenseLayer :<: f) => Weights -> Biases -> Free f ()
@@ -24,19 +24,20 @@ denseLayer ws bs = Op (inj $ DenseLayer ws bs (Pure ()))
 -- forward propagates through the network up to this layer, then computing forward
 -- prop through this layer and appending the results to the front.
 instance AlgFwd DenseLayer where
-    algFwd (DenseLayer wl bl forwardPass) = (\(vals : vs) -> 
-        let cvals = sigmoid ((wl #> vals) ^+^ bl) in (cvals : vals : vs)) 
+    algFwd (DenseLayer wl bl forwardPass) = (\vs@(vals : _) -> 
+        let cvals = sigmoid ((wl #> vals) ^+^ bl) in (cvals : vs)) 
         . forwardPass
 
 -- helper function for computing backpropagation through a DenseLayer. 
 -- takes in the weights & biases of the layer, and the current backprop info
 -- being fed in, and returns the updated weights and biases of the layer. 
+{-# INLINE backward #-} -- hopefully it gets rid of the tuple 
 backward :: Weights -> Biases -> BackProp -> (Weights, Biases, Deltas)
-backward ws bs (BackProp (al : alPrev : as) ws' ds' desiredOutput layerIndex) =
+backward ws bs (BackProp (al : alPrev : _) ws' ds' desiredOutput layerIndex) =
     let dlNew = case layerIndex of
             0 -> (al ^-^ desiredOutput) ^*^ sigmoidInv' al
             -- delta_j(L) = (a_j(L) - y_j) * sigma'(z_j(L))
-            _  -> (transposeA ws' #> ds')  ^*^ sigmoidInv' al
+            _ -> (transposeA ws' #> ds')  ^*^ sigmoidInv' al
             -- delta_l = ((w_l+1)^T delta_l+1) ^*^ sigma'(z_l)
         wlNew = ws -#- amap (*learningRate) (dlNew >< alPrev)
         -- ∂C/∂w_jk = a_k(l-1) * delta_j(l)
@@ -51,7 +52,7 @@ backward ws bs (BackProp (al : alPrev : as) ws' ds' desiredOutput layerIndex) =
 instance (DenseLayer :<: f) => AlgBwd DenseLayer f where
     algBwd (DenseLayer ws bs nextLayersFunc) backPropForCurr = 
         let (wlNew, blNew, dlNew) = backward ws bs backPropForCurr
-            backPropForNext = BackProp {ws' = ws, -- next layer's weights now this layer's
+            !backPropForNext = BackProp {ws' = ws, -- next layer's weights now this layer's
                                 ds' = dlNew, -- same for next layer's errors
                                 as = tail (as backPropForCurr), -- same for outputs
                                 desiredOutput = desiredOutput backPropForCurr, -- same desired output
