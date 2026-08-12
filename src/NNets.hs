@@ -8,16 +8,17 @@ module NNets (trainMany, forwardProp, module NNets.Common, module NNets.Layers) 
 import NNets.Common
 import NNets.Layers
 import Data.Array.Unboxed
+import Data.List.NonEmpty (NonEmpty((:|)), singleton)
 
-genFwd :: a -> (Vector -> [Vector])
-genFwd = const (: [])
+genFwd :: a -> (Vector -> NonEmpty Vector)
+genFwd = const singleton
 
 -- I don't even think this gen case is ever attainable because there is
 -- no pure values inside our tree
 genBwd :: (InputLayer :<: f) => a -> (BackProp -> Free f a) 
 genBwd _ = const (Op (inj InputLayer))
 
-forwardProp :: AlgFwd f => Free f a -> (Vector -> [Vector])
+forwardProp :: AlgFwd f => Free f a -> (Vector -> NonEmpty Vector)
 forwardProp = eval genFwd algFwd
 
 backPropagate :: forall f a. (InputLayer :<: f, AlgBwd f f) => Free f a -> (BackProp -> Free f a)
@@ -72,8 +73,8 @@ train (inp, desOut) nn =
         emptyTwoDimArray = toMatrix [[0]]
         -- just a placeholder, we never use the ws' or ds' on output layer
 
-        h :: [Vector] -> BackProp
-        h vals = BackProp vals emptyTwoDimArray emptyArray desOut 0
+        h :: NonEmpty Vector -> BackProp
+        h (val :| vals) = BackProp val vals emptyTwoDimArray emptyArray desOut 0
 
     in (backPropagate nn . h . forwardProp nn) inp
 

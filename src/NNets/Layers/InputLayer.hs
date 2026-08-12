@@ -10,6 +10,8 @@ neural network.
 -}
 module NNets.Layers.InputLayer where
 
+import Data.List.NonEmpty (singleton)
+
 import NNets.Common
 
 data InputLayer k = InputLayer deriving Functor
@@ -23,7 +25,7 @@ inputLayer = Op (inj InputLayer)
 -- will take in the input to the NN and turn it into a list, so the rest of the 
 -- activations can be appended in front.
 instance AlgFwd InputLayer where
-    algFwd InputLayer = (: []) -- simplified lambda
+    algFwd InputLayer = singleton -- simplified lambda
 
 -- algBwd's job is to collapse a layer with a hole in it (for the backprop computation
 -- so far) and incorporate the current layer's backprop rules into it. At the input layer,

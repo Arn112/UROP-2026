@@ -1,9 +1,11 @@
 module Main where
 
+import Prelude hiding (head)
+
 import NNets
 import System.Random
 import System.IO
-import Data.List
+import Data.List.NonEmpty (head)
 import Data.Array.Unboxed
 import Data.Array.Base
 import Control.DeepSeq (force, NFData, rnf)
@@ -44,19 +46,19 @@ randWeight w h =
                                   in    go (w'-1) h' g' ((x : row) : rows)
 
 mse :: [Vector] -> [Vector] -> Double
-mse expected actual = sum (map (foldlArray' (+) 0.0 . amap (\x -> x*x)) $ zipWith (^-^) expected actual) / fromIntegral (length expected)
+mse expected actual = sum (map (vfoldl' (+) 0.0 . vmap (\x -> x*x)) $ zipWith (^-^) expected actual) / fromIntegral (length expected)
 -------------------------------- Training -------------------------------------
 type FullyConnectedNetwork = (InputLayer :+: DenseLayer) 
 
-miniBatchSize :: Int = 800
-numberOfIterations :: Int = 400
+miniBatchSize :: Int = 1000
+numberOfIterations :: Int = 800
 
 sineTestInputs :: Vector
 sineTestInputs = let xs = [-pi, -pi + 0.01 .. pi] in toVector xs
 
 -- need a better API for the vector type
 sineTestOutputs :: Vector
-sineTestOutputs = amap (\x -> (sin x + 1) / 2) sineTestInputs
+sineTestOutputs = vmap (\x -> (sin x + 1) / 2) sineTestInputs
 
 fcNetworkPair :: IO (Free FullyConnectedNetwork a)
 fcNetworkPair = do
@@ -94,8 +96,8 @@ runAllEpochs numEpochs = do
 
 trainSineForBenchOutput = do
     (nn :: Free FullyConnectedNetwork a) <- runAllEpochs numberOfIterations
-    let testOutputs = amap (flip unsafeAt 0 . head . forwardProp nn . toVector . (:[])) sineTestInputs
-    -- print testOutputs
+    let testOutputs = vmap (vhead . head . forwardProp nn . toVector . (:[])) sineTestInputs
+    print testOutputs
     return testOutputs
 
 main :: IO ()

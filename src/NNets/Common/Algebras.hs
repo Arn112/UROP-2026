@@ -11,13 +11,15 @@ The gen functions are for the 'base case' of the eval, they correspond to after 
 -}
 module NNets.Common.Algebras where
 
+import Data.List.NonEmpty (NonEmpty)
+
 import NNets.Common.BackProp
 import NNets.Common.Numeric
 import NNets.Common.Coproduct
 import NNets.Common.Free
 
 class Functor f => AlgFwd f where
-    algFwd :: f (Vector -> [Vector]) -> (Vector -> [Vector])
+    algFwd :: f (Vector -> NonEmpty Vector) -> (Vector -> NonEmpty Vector)
 
 -- we require this for more than one type of layered network:
 instance (AlgFwd f, AlgFwd g) => AlgFwd (f :+: g) where

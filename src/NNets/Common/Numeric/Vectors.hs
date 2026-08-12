@@ -1,5 +1,6 @@
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-
 Module: NNets.Common.Numeric.Vectors
 Description: Defines a type to efficiently store and process vectors and matrices
@@ -12,7 +13,8 @@ module NNets.Common.Numeric.Vectors (
     toVector, toMatrix, -- user functions for creating vectors and matrices
     Vector, Matrix, 
     (^+^), (^-^), (^*^), (-#-), (><), (#>), transposeA,
-    sigmoid, sigmoidInv'
+    sigmoid, sigmoidInv',
+    vmap, mmap, vfoldl', vhead
 ) where
 
 import Data.Array.Unboxed
@@ -40,26 +42,27 @@ and Int itself is not strict? Is GHC in some way optimising the Int here to be s
 we're using it, or does it just not matter because we never do any crazy calculations with the indexes anyways?
 -}
 newtype Idx1 = Idx1 Int
-    deriving (Eq, Ord, Ix, Show)
+    deriving newtype (Eq, Ord, Ix, Show)
 
 data Idx2 = Idx2 {-# UNPACK #-} !Int {-# UNPACK #-} !Int 
     deriving (Eq, Ord, Ix, Show)
 
-type Vector = UArray Idx1 Double
-type Matrix = UArray Idx2 Double
+newtype Vector = Vector (UArray Idx1 Double) deriving newtype (Eq)
+newtype Matrix = Matrix (UArray Idx2 Double) deriving newtype (Eq, Show)
+
+instance Show Vector where
+    show (Vector v) = show (elems v)
 
 toVector :: [Double] -> Vector
-toVector v = listArray (Idx1 0, Idx1 (length v - 1)) v
+toVector v = Vector (listArray (Idx1 0, Idx1 (length v - 1)) v)
 
 toMatrix :: [[Double]] -> Matrix
-toMatrix v = listArray (Idx2 0 0, Idx2 (length v - 1) (length (head v) - 1)) (concat v)
+toMatrix [[]] = Matrix (listArray (Idx2 0 0, Idx2 0 (-1)) []) -- head warning go byebye
+toMatrix vs@(v:_) = Matrix (listArray (Idx2 0 0, Idx2 (length vs - 1) (length v - 1)) (concat vs))
 
-{-
-A generic zipWith function for Vector and Matrix types. Corresponds to elementwise operations.
-f is the function to zip the elements of each with.
 
-Since Vector and Matrix have different index types, already prevents mixing. 
--}
+-- A generic zipWith function for Vector and Matrix types. Corresponds to elementwise operations.
+-- f is the function to zip the elements of each with.
 {-# INLINE zipWithA #-}
 zipWithA :: (Ix i, IArray a e1, IArray a e2, forall s. (MArray (STUArray s) c (ST s))) 
                 => (e1 -> e2 -> c) 
@@ -77,23 +80,23 @@ zipWithA f xs ys = runSTUArray $ do
 
 -- vector addition
 (^+^) :: Vector -> Vector -> Vector
-v1 ^+^ v2 = zipWithA (+) v1 v2
+Vector v1 ^+^ Vector v2 = Vector (zipWithA (+) v1 v2)
 
 -- vector subtraction
 (^-^) :: Vector -> Vector -> Vector
-v1 ^-^ v2 = zipWithA (-) v1 v2
+Vector v1 ^-^ Vector v2 = Vector (zipWithA (-) v1 v2)
 
 -- hadamard product
 (^*^) :: Vector -> Vector -> Vector
-v1 ^*^ v2 = zipWithA (*) v1 v2
+Vector v1 ^*^ Vector v2 = Vector (zipWithA (*) v1 v2)
 
 -- matrix subtraction
 (-#-) :: Matrix -> Matrix -> Matrix
-matx -#- maty = zipWithA (-) matx maty
+Matrix matx -#- Matrix maty = Matrix (zipWithA (-) matx maty)
 
 -- outer product (i.e. u >< v = u x v^T)
 (><) :: Vector -> Vector -> Matrix
-v1 >< v2 = runSTUArray $ do 
+Vector v1 >< Vector v2 = Matrix $ runSTUArray $ do 
     let (_, Idx1 n) = bounds v1
         (_, Idx1 m) = bounds v2
     res <- newArray_ (Idx2 0 0, Idx2 n m)
@@ -106,18 +109,18 @@ v1 >< v2 = runSTUArray $ do
 
 -- matrix-vector multiplication:
 (#>) :: Matrix -> Vector -> Vector
-mat #> v = runSTUArray $ do
+Matrix mat #> Vector v = Vector $ runSTUArray $ do
     let (_, Idx2 n m) = bounds mat -- pre: m == length of v
     res <- newArray_ (Idx1 0, Idx1 n) -- res :: STUArray
     forM_ [0..n] $ \i -> do
         let loop j !acc
-                | j > m = acc
-                | otherwise = loop (j+1) (acc + unsafeAt v j * unsafeAt mat ((m+1)*i+j))
+              | j > m = acc
+              | otherwise = loop (j+1) (acc + unsafeAt v j * unsafeAt mat ((m+1)*i+j))
         unsafeWrite res i (loop 0 0.0)
     return res
 
 transposeA :: Matrix -> Matrix
-transposeA mat = runSTUArray $ do
+transposeA (Matrix mat) = Matrix $ runSTUArray $ do
     let (_, Idx2 n m) = bounds mat
     res <- newArray_ (Idx2 0 0, Idx2 m n)
     forM_ [0..n] $ \i -> do
@@ -125,12 +128,26 @@ transposeA mat = runSTUArray $ do
             unsafeWrite res ((n+1)*j+i) (unsafeAt mat ((m+1)*i+j))
     return res
 
+-- generic mapping functions for vectors and matrices. Just a wrapper around amap
+vmap :: (Double -> Double) -> Vector -> Vector
+vmap f (Vector v) = Vector (amap f v)
+
+mmap :: (Double -> Double) -> Matrix -> Matrix
+mmap f (Matrix v) = Matrix (amap f v)
+
 -- sigmoid function. maps sigmoid over a vector
 sigmoid :: Vector -> Vector
-sigmoid = amap (\x -> 1 / (1 + exp (-x))) 
+sigmoid = vmap (\x -> 1 / (1 + exp (-x)))
 
 -- sigmoidInv' x = sigma' (sigma_inv(x)), i.e. derivative at inv. point.
 -- (this is because input will usually be activation a, not raw z)
 sigmoidInv' :: Vector -> Vector
-sigmoidInv' = amap (\x -> x * (1 - x))
+sigmoidInv' = vmap (\x -> x * (1 - x))
 
+vfoldl' :: (Double -> Double -> Double) -> Double -> Vector -> Double
+vfoldl' f k (Vector v) = foldlArray' f k v
+
+-- function is unsafe, we don't really care, could make nonempty guarantees about this one
+-- as well but it's mostly a use site thing for our particular example.
+vhead :: Vector -> Double
+vhead (Vector v) = unsafeAt v 0
