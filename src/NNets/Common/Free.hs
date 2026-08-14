@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+-- {-# LANGUAGE Strict #-}
 {-
 Module: NNets.Common.Free
 Description: Contains the free monad definition and the eval and build functions
@@ -22,7 +24,3 @@ instance Functor f => Monad (Free f) where
 eval :: Functor f => (a -> b) -> (f b -> b) -> Free f a -> b
 eval gen alg (Pure x) = gen x
 eval gen alg (Op t) = (alg . fmap (eval gen alg)) t
-
--- Free monad version of ana:
-build :: Functor f => (b -> f b) -> b -> Free f a
-build coalg seed = Op (fmap (build coalg) (coalg seed))

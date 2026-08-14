@@ -80,22 +80,7 @@ library nnets
     build-depends: base >=4.12.0.0, array, random
     hs-source-dirs: src
     default-language: GHC2021
-    default-extensions: Strict
-
-benchmark ann-bench
-    type: exitcode-stdio-1.0
-    build-depends:
-        base,
-        tasty,
-        tasty-bench,
-        deepseq,
-        ann-lib,
-        random
-    hs-source-dirs: benchmark
-    default-language: GHC2021
-    main-is: examples.hs
-    ghc-options: -rtsopts
-    -- if ever stuck then cabal clean
+    -- default-extensions: Strict 
 
 benchmark ann-warray-bench
     type: exitcode-stdio-1.0
@@ -111,4 +96,5 @@ benchmark ann-warray-bench
     default-language: GHC2021
     main-is: fastListExamples.hs
     ghc-options:    -rtsopts
-    --default-extensions: Strict
+    default-extensions: Strict
+

@@ -1,4 +1,5 @@
-{-# LANGUAGE UnboxedTuples, BangPatterns #-}
+-- {-# LANGUAGE UnboxedTuples, BangPatterns #-}
+-- {-# LANGUAGE Strict #-}
 {-
 Module: NNets
 Description: User facing API of all network layers and functions. 
@@ -20,52 +21,13 @@ genBwd _ = const (Op (inj InputLayer))
 
 forwardProp :: AlgFwd f => Free f a -> (Vector -> NonEmpty Vector)
 forwardProp = eval genFwd algFwd
+-- I'm not sure why eval works fast in this case. I would assume that building the function
+-- creates huge thunks, but it doesn't seem to show much in the benchmark. Maybe it's because
+-- we only do forwardProp nn on the input, so then the laziness helps it perhaps avoid building
+-- the lambda as it threads through the outputs of each step?
 
 backPropagate :: forall f a. (InputLayer :<: f, AlgBwd f f) => Free f a -> (BackProp -> Free f a)
 backPropagate = eval genBwd algBwd
-
--- banana split property of folds: any pair of folds can be combined to a 
--- single fold which generates a pair:
--- pairGen :: (a -> b) -> (a -> c) -> a -> (b, c)
--- pairGen f g x = (f x, g x)
-
--- pairAlg :: Functor f => (f b -> b) -> (f c -> c) -> f (b, c) -> (b, c)
--- pairAlg algB algC fbc = (algB (fmap fst fbc), algC (fmap snd fbc))
-
--- train :: (InputLayer :<: f, AlgFwd f, AlgBwd f f) => (Vector, Vector) -> Free f a -> Free f a
--- train (inp, desOut) nn = 
---     let algTrain = pairAlg algFwd algBwd
---         genTrain = pairGen genFwd genBwd
---         emptyArray = toVector [0]
---         emptyTwoDimArray = toMatrix [[0]]
---         -- you don't need to run forwardPass for backwardPass to exist anymore
---         -- they are just functions composed independently, then chained
---         (forwardPass, backwardPass) = eval genTrain algTrain nn
---         h :: [Vector] -> BackProp
---         h vals = BackProp vals emptyTwoDimArray emptyArray desOut 0
---     in (backwardPass . h . forwardPass) inp
-
--- data Passes a b = Passes {fwd :: !a, bwd :: !b}
-
--- pairGenP :: (a -> b) -> (a -> c) -> a -> Passes b c
--- pairGenP f g x = Passes {fwd = f x, bwd = g x}
-
--- pairAlgP :: Functor f => (f b -> b) -> (f c -> c) -> f (Passes b c) -> Passes b c
--- pairAlgP algB algC fbc = Passes {fwd = algB (fmap fwd fbc), bwd = algC (fmap bwd fbc)}
-
--- train :: (InputLayer :<: f, AlgFwd f, AlgBwd f f) => (Vector, Vector) -> Free f a -> Free f a
--- train (inp, desOut) nn = 
---     let algTrainP = pairAlgP algFwd algBwd
---         genTrainP = pairGenP genFwd genBwd
---         emptyArray = toVector [0]
---         emptyTwoDimArray = toMatrix [[0]]
-        
---         !(Passes fwdPass bwdPass) = eval genTrainP algTrainP nn
-        
---         h :: [Vector] -> BackProp
---         h vals = BackProp vals emptyTwoDimArray emptyArray desOut 0
-
---     in (bwdPass . h . fwdPass) inp
 
 train :: (InputLayer :<: f, AlgFwd f, AlgBwd f f) => (Vector, Vector) -> Free f a -> Free f a
 train (inp, desOut) nn = 
@@ -78,8 +40,15 @@ train (inp, desOut) nn =
 
     in (backPropagate nn . h . forwardProp nn) inp
 
--- this function could be improved for performance potentially.
+-- {-# INLINE trainMany #-} this causes a large spike at the end,
+-- so removing it but not tested extensively.
 trainMany :: (InputLayer :<: f, AlgFwd f, AlgBwd f f) 
           => [(Vector, Vector)] -> Free f a -> Free f a
 trainMany dataSet nn = foldr train nn dataSet
+-- trainMany dataSet nn = foldl' (flip train) nn dataSet
+-- trainMany dataSet nn = go train dataSet nn 
+--     where
+--         go _ [] !nn = nn
+--         go train (d:ds) !nn = go train ds (train d nn)
+
 

@@ -51,7 +51,7 @@ mse expected actual = sum (map (vfoldl' (+) 0.0 . vmap (\x -> x*x)) $ zipWith (^
 type FullyConnectedNetwork = (InputLayer :+: DenseLayer) 
 
 miniBatchSize :: Int = 1000
-numberOfIterations :: Int = 800
+numberOfIterations :: Int = 1000
 
 sineTestInputs :: Vector
 sineTestInputs = let xs = [-pi, -pi + 0.01 .. pi] in toVector xs
@@ -73,16 +73,19 @@ fcNetworkPair = do
 generateEpoch :: Int -> IO [(Vector, Vector)]
 generateEpoch n_samples = do
     g <- newStdGen
-    let initialInputs = take n_samples (randomRs (-pi, pi) g)
+    let initialInputs = take n_samples (uniformRs (-pi, pi) g) -- integrates better with list fusion apparently
         desiredOutputs = map (\x -> (sin x + 1) / 2) initialInputs -- keeps between 0 and 1
         trainingData = zipWith (\x y -> (toVector [x], toVector [y])) initialInputs desiredOutputs
     return trainingData
 
 runEpoch network = do
     trainingData <- generateEpoch miniBatchSize
+
+    -- want to test how long it's taking to generate data vs to do computation.
+    -- hold it for a second here.
+    -- threadDelay 1000000 
+
     let nn = trainMany trainingData network
-        actualOutputs = map (head . forwardProp nn . fst) trainingData
-        avgError = mse (map snd trainingData) actualOutputs
     return nn
 
 runAllEpochs numEpochs = do
