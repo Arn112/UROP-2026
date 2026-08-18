@@ -4,7 +4,7 @@
 Module: NNets
 Description: User facing API of all network layers and functions. 
 -}
-module NNets (trainMany, forwardProp, module NNets.Common, module NNets.Layers) where
+module NNets (trainMany, forwardProp, module NNets.Common, module NNets.Layers, printNetwork) where
 
 import NNets.Common
 import NNets.Layers
@@ -51,4 +51,24 @@ trainMany dataSet nn = foldr train nn dataSet
 --         go _ [] !nn = nn
 --         go train (d:ds) !nn = go train ds (train d nn)
 
+type FullyConnectedNetwork = (InputLayer :+: DenseLayer) 
 
+
+-- PUT THIS IN A BETTER FILE AND MAKE IT WORK FOR ANY FUNCTOR (TYPE OF NETWORK) 
+printNetwork :: Free FullyConnectedNetwork a -> IO ()
+printNetwork nn = do
+    putStrLn "NETWORK START: ----------------------------- "
+    printNetwork' nn
+    putStrLn "NETWORK END: ------------------------------- \n"
+
+    where
+        printNetwork' (Op nn) = do
+            case nn of
+                InputLayer' -> do 
+                    putStrLn "input layer"                                           
+                DenseLayer' ws bs nn' -> do 
+                    putStrLn "dense layer: "
+                    putStrLn $ "ws: \n" ++ show ws
+                    putStrLn $ "bs: " ++ show bs
+                    putStrLn "--------------"
+                    printNetwork' nn'

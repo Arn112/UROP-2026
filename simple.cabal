@@ -46,24 +46,6 @@ maintainer:         avm25@ic.ac.uk
 
 -- Extra files to be distributed with the package, such as examples or a README.
 -- extra-source-files: CHANGELOG.md
-
-library ann-lib
-    exposed-modules: BothFolds, Helpers
-    build-depends: base >=4.12.0.0, array, random
-    hs-source-dirs: src
-    default-language: GHC2021
-    default-extensions: Strict
-
--- creating another library for the arrays one, because ik BothFolds and
--- FastLists are contradictory:
-library ann-warray-lib
-    -- watch out, cursed naming
-    exposed-modules: Helpers, FastLists, FastListTraining
-    build-depends: base >=4.12.0.0, array, random
-    hs-source-dirs: src
-    default-language: GHC2021
-    default-extensions: Strict
-
 library nnets
     exposed-modules: NNets
     other-modules:  NNets.Common, 

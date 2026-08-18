@@ -14,7 +14,7 @@ module NNets.Common.Numeric.Vectors (
     Vector, Matrix, 
     (^+^), (^-^), (^*^), (-#-), (><), (#>), transposeA,
     sigmoid, sigmoidInv',
-    vmap, mmap, vfoldl', vhead
+    vmap, mmap, vfoldl', vhead, clipVec
 ) where
 
 import Data.Array.Unboxed
@@ -23,6 +23,7 @@ import Data.Array.MArray
 import Control.Monad.ST
 import Control.Monad
 import Data.Array.Base
+import Numeric (showFFloat)
 {-
 Custom index types strict in its arguments to avoid laziness.
 
@@ -48,10 +49,7 @@ data Idx2 = Idx2 {-# UNPACK #-} !Int {-# UNPACK #-} !Int
     deriving (Eq, Ord, Ix, Show)
 
 newtype Vector = Vector (UArray Idx1 Double) deriving newtype (Eq)
-newtype Matrix = Matrix (UArray Idx2 Double) deriving newtype (Eq, Show)
-
-instance Show Vector where
-    show (Vector v) = show (elems v)
+newtype Matrix = Matrix (UArray Idx2 Double) deriving newtype (Eq)
 
 toVector :: [Double] -> Vector
 toVector v = Vector (listArray (Idx1 0, Idx1 (length v - 1)) v)
@@ -60,6 +58,24 @@ toMatrix :: [[Double]] -> Matrix
 toMatrix [[]] = Matrix (listArray (Idx2 0 0, Idx2 0 (-1)) []) -- head warning go byebye
 toMatrix vs@(v:_) = Matrix (listArray (Idx2 0 0, Idx2 (length vs - 1) (length v - 1)) (concat vs))
 
+------- pretty printing functions: ----------
+roundTo2dp :: [Double] -> [Double]
+roundTo2dp xs = [fromInteger (round (x * 100)) / 100.0 | x <- xs]
+
+chunksOf :: Int -> [Double] -> [[Double]]
+chunksOf _ [] = []
+chunksOf n xs = let (chunk, rest) = splitAt n xs
+                in chunk : chunksOf n rest    
+
+instance Show Vector where
+    -- show (Vector v) = show (roundTo2dp (elems v))
+    show (Vector v) = show (elems v)
+
+instance Show Matrix where 
+    -- show (Matrix m) = let (_, Idx2 _ width) = bounds m
+    --                     in unlines (map (show . roundTo2dp) (chunksOf (width+1) (elems m)))
+    show (Matrix m) = show (elems m)
+---------------------------------------------
 
 -- A generic zipWith function for Vector and Matrix types. Corresponds to elementwise operations.
 -- f is the function to zip the elements of each with.
@@ -137,7 +153,8 @@ mmap f (Matrix v) = Matrix (amap f v)
 
 -- sigmoid function. maps sigmoid over a vector
 sigmoid :: Vector -> Vector
-sigmoid = vmap (\x -> 1 / (1 + exp (-x)))
+-- sigmoid = vmap (\x -> 1 / (1 + exp (-x)))
+sigmoid = vmap (\x -> if x >= 0 then 1 / (1 + exp (-x)) else exp x / (1 + exp x))
 
 -- sigmoidInv' x = sigma' (sigma_inv(x)), i.e. derivative at inv. point.
 -- (this is because input will usually be activation a, not raw z)
@@ -151,3 +168,7 @@ vfoldl' f k (Vector v) = foldlArray' f k v
 -- as well but it's mostly a use site thing for our particular example.
 vhead :: Vector -> Double
 vhead (Vector v) = unsafeAt v 0
+
+-- clips the vectors' values so that for each element, |element| < x , (x > 0)
+clipVec :: Double -> Vector -> Vector
+clipVec x = vmap (\y -> if y > 0 then min x y else max (-x) y) 

@@ -11,6 +11,7 @@ import Data.Array.Base
 import Control.DeepSeq (force, NFData, rnf)
 import Control.Exception (evaluate)
 import Control.Concurrent (threadDelay)
+import Control.Monad
 
 import Test.Tasty.Bench (bench, bgroup, defaultMain, env, nf, whnf, nfIO, whnfIO)
 
@@ -30,28 +31,26 @@ randBias len =
     return $ toVector $ replicate len 0.0
 
 -- Creates a matrix of a given size initialised with random numbers from -0.5 to 0.5
--- useful for initialising weights. The fact that this uses listArray may contribute to
--- some performance issues but it isn't too major since it's only during initialisation,
--- which occurs once. 
+-- useful for initialising weights. Performance here isn't a big deal.
 -- We use Xavier weight initialisation.
 randWeight :: Int -> Int -> IO Matrix
-randWeight w h =
+randWeight n m =
     do  gen <- newStdGen
-        return $ go w h gen [[]]
+        return $ go n gen []
     where
-        go 0 0 g xs             = toMatrix xs
-        go 0 h' g xs            = go w (h'-1) g ([]:xs)
-        go w' h' g (row : rows) = let   xavierRange = (1.0 / sqrt (fromIntegral w))
-                                        (x, g') = randomR (-xavierRange, xavierRange) g
-                                  in    go (w'-1) h' g' ((x : row) : rows)
+        go 0 _ xs = toMatrix xs
+        go n g xs = let (g1, g2) = split g
+                        xavierRange = (1.0 / sqrt (fromIntegral m))
+                        row = take m $ uniformRs (-xavierRange, xavierRange) g1
+                    in  go (n-1) g2 (row : xs) -- right associates.
 
 mse :: [Vector] -> [Vector] -> Double
 mse expected actual = sum (map (vfoldl' (+) 0.0 . vmap (\x -> x*x)) $ zipWith (^-^) expected actual) / fromIntegral (length expected)
 -------------------------------- Training -------------------------------------
 type FullyConnectedNetwork = (InputLayer :+: DenseLayer) 
 
-miniBatchSize :: Int = 1000
-numberOfIterations :: Int = 1000
+miniBatchSize :: Int = 800
+numberOfIterations :: Int = 100
 
 sineTestInputs :: Vector
 sineTestInputs = let xs = [-pi, -pi + 0.01 .. pi] in toVector xs
@@ -66,8 +65,11 @@ fcNetworkPair = do
     b1 <- randBias 1
     w2 <- randWeight 1 12
     b2 <- randBias 12  
-    return $ do denseLayer w1 b1
-                denseLayer w2 b2
+    -- return $ do denseLayer w1 b1
+    --             denseLayer w2 b2
+    --             inputLayer
+    return $ do denseLayer w2 b2
+                denseLayer w1 b1
                 inputLayer
 
 generateEpoch :: Int -> IO [(Vector, Vector)]
@@ -95,7 +97,9 @@ runAllEpochs numEpochs = do
     go 0 net = pure net
     go n net = do
       net' <- runEpoch net
+      when (n `mod` 100 == 0) $ printNetwork net'
       go (n - 1) net'
+
 
 trainSineForBenchOutput = do
     (nn :: Free FullyConnectedNetwork a) <- runAllEpochs numberOfIterations

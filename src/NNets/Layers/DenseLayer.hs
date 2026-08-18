@@ -1,4 +1,5 @@
 {-# LANGUAGE UndecidableInstances #-}
+{-#LANGUAGE PatternSynonyms, ViewPatterns#-}
 {-
 Module: NNets.Types.Layers.InputLayer
 Description: Implementation of the general input layer to be used in any network
@@ -8,7 +9,7 @@ Description: Implementation of the general input layer to be used in any network
 This file contains the definition of the general dense layer to be used by every
 neural network. 
 -}
-module NNets.Layers.DenseLayer ( denseLayer, DenseLayer ) where
+module NNets.Layers.DenseLayer ( denseLayer, DenseLayer, pattern DenseLayer' ) where
 
 import NNets.Common
 import Data.Array.Unboxed
@@ -19,6 +20,8 @@ data DenseLayer k = DenseLayer {-# UNPACK #-} !Weights {-# UNPACK #-} !Biases k 
 -- smart constructor:
 denseLayer :: (DenseLayer :<: f) => Weights -> Biases -> Free f ()
 denseLayer ws bs = Op (inj $ DenseLayer ws bs (Pure ()))
+
+pattern DenseLayer' ws bs nn' <- (prj -> Just (DenseLayer ws bs nn'))
 
 -- eval on a free structure recursively evaluates the hole of the structure, 
 -- then the current layer. Here this corresponds to computing the function which

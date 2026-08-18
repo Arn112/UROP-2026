@@ -1,4 +1,5 @@
 {-# LANGUAGE UndecidableInstances #-}
+{-#LANGUAGE PatternSynonyms, ViewPatterns#-}
 {-
 Module: NNets.Types.Layers.InputLayer
 Description: Implementation of the general input layer to be used in any network
@@ -20,6 +21,8 @@ data InputLayer k = InputLayer deriving Functor
 -- final network (f):
 inputLayer :: (InputLayer :<: f) => Free f a
 inputLayer = Op (inj InputLayer)
+
+pattern InputLayer' <- (prj -> Just InputLayer)
 
 -- the algFwd instance for this corresponds to initialising an empty list which
 -- will take in the input to the NN and turn it into a list, so the rest of the 
