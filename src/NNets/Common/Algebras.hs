@@ -38,3 +38,13 @@ class AlgBwd g f where
 instance (AlgBwd g f, AlgBwd h f) => AlgBwd (g :+: h) f where
     algBwd (L fx) = algBwd fx
     algBwd (R gx) = algBwd gx
+
+-- we create another algebra which allows us to print the network for debugging purposes
+-- it makes sense that printing it recursively is the same process at heart
+class Functor f => AlgPrint f where
+    algPrint :: f String -> String
+    -- only need the current layer's output for the rest of it
+
+instance (AlgPrint f, AlgPrint g) => AlgPrint (f :+: g) where
+    algPrint (L ft) = algPrint ft
+    algPrint (R gt) = algPrint gt

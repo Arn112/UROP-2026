@@ -5,8 +5,10 @@ Description: Re-export of all important numeric functions for the rest of the li
 
 module NNets.Common.Numeric (
     module NNets.Common.Numeric.Vectors,
-    module NNets.Common.Numeric.Types
+    module NNets.Common.Numeric.Types,
+    module NNets.Common.Numeric.Activations
 ) where
 
 import NNets.Common.Numeric.Vectors
 import NNets.Common.Numeric.Types
+import NNets.Common.Numeric.Activations
