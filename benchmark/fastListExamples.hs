@@ -11,7 +11,7 @@ import Data.Array.Base
 import Control.DeepSeq (force, NFData, rnf)
 import Control.Exception (evaluate)
 import Control.Concurrent (threadDelay)
-import Control.Monad
+import Control.Monad (when)
 
 import Test.Tasty.Bench (bench, bgroup, defaultMain, env, nf, whnf, nfIO, whnfIO)
 
@@ -39,10 +39,11 @@ randWeight n m =
         return $ go n gen []
     where
         go 0 _ xs = toMatrix xs
-        go n g xs = let (g1, g2) = split g
+        go n g xs = let (g1, g2) = splitGen g
                         xavierRange = (1.0 / sqrt (fromIntegral m))
                         row = take m $ uniformRs (-xavierRange, xavierRange) g1
                     in  go (n-1) g2 (row : xs) -- right associates.
+
 
 mse :: [Vector] -> [Vector] -> Double
 mse expected actual = sum (map (vfoldl' (+) 0.0 . vmap (\x -> x*x)) $ zipWith (^-^) expected actual) / fromIntegral (length expected)
@@ -50,7 +51,7 @@ mse expected actual = sum (map (vfoldl' (+) 0.0 . vmap (\x -> x*x)) $ zipWith (^
 type FullyConnectedNetwork = (InputLayer :+: DenseLayer) 
 
 miniBatchSize :: Int = 800
-numberOfIterations :: Int = 100
+numberOfIterations :: Int = 200
 
 sineTestInputs :: Vector
 sineTestInputs = let xs = [-pi, -pi + 0.01 .. pi] in toVector xs
@@ -62,13 +63,26 @@ sineTestOutputs = vmap (\x -> (sin x + 1) / 2) sineTestInputs
 fcNetworkPair :: IO (Free FullyConnectedNetwork a)
 fcNetworkPair = do
     w1 <- randWeight 12 1
-    b1 <- randBias 1
+    b1 <- randBias 12 -- these were swapped, cause of the old bug. 
     w2 <- randWeight 1 12
-    b2 <- randBias 12  
-    -- return $ do denseLayer w1 b1
-    --             denseLayer w2 b2
-    --             inputLayer
-    return $ do denseLayer w2 b2
+    b2 <- randBias 1  
+    return $ do denseLayer w2 b2 -- the layers also should have been this way around
+                denseLayer w1 b1
+                inputLayer
+
+twoHiddenNetwork :: IO (Free FullyConnectedNetwork a)
+twoHiddenNetwork = do
+    w1 <- randWeight 3 1
+    b1 <- randBias 3
+    w2 <- randWeight 3 3
+    b2 <- randBias 3
+    w3 <- randWeight 1 3
+    b3 <- randBias 1
+    w4 <- randWeight 3 3
+    b4 <- randBias 3
+    return $ do denseLayer w3 b3
+                denseLayer w4 b4
+                denseLayer w2 b2
                 denseLayer w1 b1
                 inputLayer
 
@@ -82,22 +96,17 @@ generateEpoch n_samples = do
 
 runEpoch network = do
     trainingData <- generateEpoch miniBatchSize
-
-    -- want to test how long it's taking to generate data vs to do computation.
-    -- hold it for a second here.
-    -- threadDelay 1000000 
-
     let nn = trainMany trainingData network
     return nn
 
 runAllEpochs numEpochs = do
-    network0 <- fcNetworkPair
+    network0 <- twoHiddenNetwork
     go numEpochs network0
   where
     go 0 net = pure net
     go n net = do
       net' <- runEpoch net
-      when (n `mod` 100 == 0) $ printNetwork net'
+    --   when (n `mod` 10 == 0) $ printNetwork net'
       go (n - 1) net'
 
 
@@ -107,11 +116,6 @@ trainSineForBenchOutput = do
     print testOutputs
     return testOutputs
 
-main :: IO ()
--- main = defaultMain
---     [
---         bgroup "sine" [bench "training" $ nfIO trainSineForBenchOutput]
---     ]
 main = do
     testOutputs <- trainSineForBenchOutput
     -- print (concatMap sum testOutputs)

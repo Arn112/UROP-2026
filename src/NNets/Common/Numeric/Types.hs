@@ -8,6 +8,3 @@ import NNets.Common.Numeric.Vectors
 type Weights = Matrix
 type Biases = Vector
 type Deltas = Vector
-
--- DECIDE WHICH FILE THIS NEEDS TO GO IN
-learningRate :: Double = 0.4

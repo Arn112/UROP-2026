@@ -1,5 +1,4 @@
-{-# LANGUAGE UndecidableInstances #-}
-{-#LANGUAGE PatternSynonyms, ViewPatterns#-}
+{-# LANGUAGE UndecidableInstances, ViewPatterns, PatternSynonyms #-}
 {-
 Module: NNets.Types.Layers.InputLayer
 Description: Implementation of the general input layer to be used in any network
@@ -37,5 +36,9 @@ instance AlgFwd InputLayer where
 instance (InputLayer :<: f) => AlgBwd InputLayer f where
     algBwd InputLayer = const (Op (inj InputLayer))
     -- inj because we dk what f looks like, Op because needs to be Free f a
+
+instance AlgPrint InputLayer where
+    algPrint InputLayer = "input layer \n"
+
 
 

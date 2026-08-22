@@ -25,27 +25,12 @@ synopsis:
 -- URL for the project homepage or repository.
 homepage:
 
--- A URL where users can report bugs.
--- bug-reports:
-
--- The license under which the package is released.
-license:            BSD-3-Clause
-
--- The file containing the license text.
-license-file:       LICENSE
-
 -- The package author(s).
 author:             Arnav Maniyar
 
 -- An email address to which users can send suggestions, bug reports, and patches.
 maintainer:         avm25@ic.ac.uk
 
--- A copyright notice.
--- copyright:
--- category:
-
--- Extra files to be distributed with the package, such as examples or a README.
--- extra-source-files: CHANGELOG.md
 library nnets
     exposed-modules: NNets
     other-modules:  NNets.Common, 
@@ -56,9 +41,11 @@ library nnets
                     NNets.Common.Numeric,
                     NNets.Common.Numeric.Types,
                     NNets.Common.Numeric.Vectors,
+                    NNets.Common.Numeric.Activations,
                     NNets.Layers,
                     NNets.Layers.DenseLayer,
-                    NNets.Layers.InputLayer
+                    NNets.Layers.InputLayer,
+                    NNets.PrintNets
     build-depends: base >=4.12.0.0, array, random
     hs-source-dirs: src
     default-language: GHC2021
