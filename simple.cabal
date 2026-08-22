@@ -45,7 +45,9 @@ library nnets
                     NNets.Layers,
                     NNets.Layers.DenseLayer,
                     NNets.Layers.InputLayer,
-                    NNets.PrintNets
+                    NNets.Training.Propagations,
+                    NNets.Train,
+                    NNets.Debug.PrintNets
     build-depends: base >=4.12.0.0, array, random
     hs-source-dirs: src
     default-language: GHC2021

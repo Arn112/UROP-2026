@@ -100,7 +100,7 @@ runEpoch network = do
     return nn
 
 runAllEpochs numEpochs = do
-    network0 <- twoHiddenNetwork
+    network0 <- fcNetworkPair
     go numEpochs network0
   where
     go 0 net = pure net
