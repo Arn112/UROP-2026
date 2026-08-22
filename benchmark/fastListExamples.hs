@@ -53,7 +53,7 @@ mse expected actual = sum (map (vfoldl' (+) 0.0 . vmap (\x -> x*x)) $ zipWith (^
 type FullyConnectedNetwork = (InputLayer :+: DenseLayer) 
 
 miniBatchSize :: Int = 800
-numberOfIterations :: Int = 100
+numberOfIterations :: Int = 200
 
 sineTestInputs :: Vector
 sineTestInputs = let xs = [-pi, -pi + 0.01 .. pi] in toVector xs
@@ -72,6 +72,22 @@ fcNetworkPair = do
                 denseLayer w1 b1
                 inputLayer
 
+twoHiddenNetwork :: IO (Free FullyConnectedNetwork a)
+twoHiddenNetwork = do
+    w1 <- randWeight 3 1
+    b1 <- randBias 3
+    w2 <- randWeight 3 3
+    b2 <- randBias 3
+    w3 <- randWeight 1 3
+    b3 <- randBias 1
+    w4 <- randWeight 3 3
+    b4 <- randBias 3
+    return $ do denseLayer w3 b3
+                denseLayer w4 b4
+                denseLayer w2 b2
+                denseLayer w1 b1
+                inputLayer
+
 generateEpoch :: Int -> IO [(Vector, Vector)]
 generateEpoch n_samples = do
     g <- newStdGen
@@ -86,13 +102,13 @@ runEpoch network = do
     return nn
 
 runAllEpochs numEpochs = do
-    network0 <- fcNetworkPair
+    network0 <- twoHiddenNetwork
     go numEpochs network0
   where
     go 0 net = pure net
     go n net = do
       net' <- runEpoch net
-      when (n `mod` 10 == 0) $ printNetwork net'
+    --   when (n `mod` 10 == 0) $ printNetwork net'
       go (n - 1) net'
 
 trainSineForBenchOutput = do
