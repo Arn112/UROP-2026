@@ -6,7 +6,7 @@ module NNets.Common.Numeric.Activations where
 
 import NNets.Common.Numeric.Vectors
 
--- IS THIS THE RIGHT FILE FOR THIS? PROBABLY NOT
+-- Hyperparameters: 
 learningRate :: Double = 0.4
 
 -- sigmoid function. maps sigmoid over a vector

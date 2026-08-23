@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns #-}
+-- {-# LANGUAGE BangPatterns #-}
 -- {-# LANGUAGE Strict #-}
 {-
 Module: NNets.Common.Free

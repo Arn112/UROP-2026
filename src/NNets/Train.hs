@@ -1,14 +1,15 @@
--- defines and exposes the training functions required for the user
+-- defines and exposes the training functions and parameters
+-- required for the user.
 
 module NNets.Train (
     trainMany,
-    forwardProp
+    forwardProp,
+    learningRate
 ) where
 
 import NNets.Training.Propagations
 import NNets.Common
 import NNets.Layers
--- import NNets.PrintNets
 import Data.Array.Unboxed
 import Data.List.NonEmpty (NonEmpty((:|)), singleton)
 

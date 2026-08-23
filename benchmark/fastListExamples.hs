@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+
 module Main where
 
 import Prelude hiding (head)
@@ -38,11 +40,11 @@ randWeight n m =
     do  gen <- newStdGen
         return $ go n gen []
     where
-        go 0 _ xs = toMatrix xs
-        go n g xs = let (g1, g2) = splitGen g
-                        xavierRange = (1.0 / sqrt (fromIntegral m))
-                        row = take m $ uniformRs (-xavierRange, xavierRange) g1
-                    in  go (n-1) g2 (row : xs) -- right associates.
+        go 0 _ !xs  =   toMatrix xs
+        go !n g !xs =   let (g1, g2) = splitGen g
+                            xavierRange = (1.0 / sqrt (fromIntegral m))
+                            row = take m $ uniformRs (-xavierRange, xavierRange) g1
+                        in  go (n-1) g2 (row : xs) -- right associates.
 
 
 mse :: [Vector] -> [Vector] -> Double
@@ -96,7 +98,26 @@ generateEpoch n_samples = do
 
 runEpoch network = do
     trainingData <- generateEpoch miniBatchSize
-    let nn = trainMany trainingData network
+    let !nn = trainMany trainingData network -- this fixed the strictness issue in this file. 
+    {-
+    Honestly I don't know exactly why this bang pattern fixed it. I just had a hunch. 
+    I think it's because, trainMany is just a foldl', and ! just needs the outermost constructor
+    of the result. However, the result could be Op or Pure, we don't know until we evaluate the full
+    forward and backprop (i.e. full train) over all the examples, i.e. compute the entire foldl'. 
+    I don't even think it can skip that last train completely because each train requies a function
+    composition which is only applied right at the end, so maybe it would do backprop until the first
+    DenseLayer and then stop? But then that's so incomplete and it would have to finish before the next
+    train anyways. 
+
+    Altho this doesn't explain why the old version before the bang took up so much memory. There's so
+    much ARR_WORDS on that one but the arrays are strict and there's not that many of them, so the 
+    only thing I can think of is those are thunks which have a result of ARR_WORDS?
+
+    Maybe the chain of thunks contains space for each trainingData and weights and biases which is preallocated?
+    and then can only be GC'd? But then why a slow decay and a cliff at the end?
+
+    apparently sawtooth pattern is generational GC behaviour (claude says it is but idk what's causing it here?)
+    -}
     return nn
 
 runAllEpochs numEpochs = do
