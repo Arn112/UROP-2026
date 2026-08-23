@@ -3,9 +3,9 @@
 module Main where
 
 import Prelude hiding (head)
-
 import NNets
 import System.Random
+-- import System.Random.Shuffle (shuffle')
 import System.IO
 import Data.List.NonEmpty (head)
 import Data.Array.Unboxed
@@ -17,35 +17,13 @@ import Control.Monad (when)
 
 import Test.Tasty.Bench (bench, bgroup, defaultMain, env, nf, whnf, nfIO, whnfIO)
 
--- we need these instances here because for the benchmarks to work
+-- we need these instances here because for the benchmarks to work. Not needed for the
+-- actual production code so we leave it here.
 instance NFData Vector where
     rnf arr = arr `seq` ()
 
 instance NFData Matrix where
     rnf arr = arr `seq` ()
-
--- Creates a vector of a given length initialised with random numbers from -0.5 to 0.5
--- useful for initialising biases. The fact that this uses listArray may contribute to
--- some performance issues but it isn't too major since it's only during initialisation,
--- which occurs once. 
-randBias :: Int -> IO Vector
-randBias len = 
-    return $ toVector $ replicate len 0.0
-
--- Creates a matrix of a given size initialised with random numbers from -0.5 to 0.5
--- useful for initialising weights. Performance here isn't a big deal.
--- We use Xavier weight initialisation.
-randWeight :: Int -> Int -> IO Matrix
-randWeight n m =
-    do  gen <- newStdGen
-        return $ go n gen []
-    where
-        go 0 _ !xs  =   toMatrix xs
-        go !n g !xs =   let (g1, g2) = splitGen g
-                            xavierRange = (1.0 / sqrt (fromIntegral m))
-                            row = take m $ uniformRs (-xavierRange, xavierRange) g1
-                        in  go (n-1) g2 (row : xs) -- right associates.
-
 
 mse :: [Vector] -> [Vector] -> Double
 mse expected actual = sum (map (vfoldl' (+) 0.0 . vmap (\x -> x*x)) $ zipWith (^-^) expected actual) / fromIntegral (length expected)
@@ -53,7 +31,7 @@ mse expected actual = sum (map (vfoldl' (+) 0.0 . vmap (\x -> x*x)) $ zipWith (^
 type FullyConnectedNetwork = (InputLayer :+: DenseLayer) 
 
 miniBatchSize :: Int = 800
-numberOfIterations :: Int = 200
+numberOfIterations :: Int = 100
 
 sineTestInputs :: Vector
 sineTestInputs = let xs = [-pi, -pi + 0.01 .. pi] in toVector xs
@@ -95,6 +73,10 @@ generateEpoch n_samples = do
         desiredOutputs = map (\x -> (sin x + 1) / 2) initialInputs -- keeps between 0 and 1
         trainingData = zipWith (\x y -> (toVector [x], toVector [y])) initialInputs desiredOutputs
     return trainingData
+    -- let sineInps = [-pi, -pi + 0.005 .. pi]
+    --     sineOuts = map (\x -> (sin x + 1) / 2) sineInps
+    --     pairs = zipWith (\x y -> (toVector [x], toVector [y])) sineInps sineOuts
+    -- return $ shuffle' pairs (length pairs) g
 
 runEpoch network = do
     trainingData <- generateEpoch miniBatchSize

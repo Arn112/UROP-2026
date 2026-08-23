@@ -4,10 +4,12 @@
 module NNets.Train (
     trainMany,
     forwardProp,
-    learningRate
+    learningRate,
+    module NNets.Training.Initialise
 ) where
 
 import NNets.Training.Propagations
+import NNets.Training.Initialise
 import NNets.Common
 import NNets.Layers
 import Data.Array.Unboxed

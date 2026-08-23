@@ -46,6 +46,7 @@ library nnets
                     NNets.Layers.DenseLayer,
                     NNets.Layers.InputLayer,
                     NNets.Training.Propagations,
+                    NNets.Training.Initialise,
                     NNets.Train,
                     NNets.Debug.PrintNets
     build-depends: base >=4.12.0.0, array, random
@@ -62,6 +63,7 @@ benchmark ann-warray-bench
         deepseq,
         nnets,
         random,
+        random-shuffle,
         array
     hs-source-dirs: benchmark
     default-language: GHC2021
