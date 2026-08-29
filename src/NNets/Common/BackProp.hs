@@ -1,7 +1,5 @@
-{-
-Module: NNets.Common.BackProp
-Description: Contains the backprop type for storing backpropagation information.
--}
+-- Contains the backprop type for storing backpropagation information.
+
 module NNets.Common.BackProp where
 
 import NNets.Common.Numeric

@@ -1,5 +1,4 @@
--- defines and exposes the training functions and parameters
--- required for the user.
+-- defines and exposes the training functions and parameters required for the user.
 
 module NNets.Train (
     trainMany,
@@ -24,12 +23,11 @@ train (inp, desOut) nn =
 
     in (backPropagate nn . h . forwardProp nn) inp
 
--- {-# INLINE trainMany #-} this causes a large spike at the end,
--- so removing it but not tested extensively.
 trainMany :: (InputLayer :<: f, AlgFwd f, AlgBwd f f) 
           => [(Vector, Vector)] -> Free f a -> Free f a
--- trainMany dataSet nn = foldr train nn dataSet
 trainMany dataSet nn = foldl' (flip train) nn dataSet
+-- There might be an advantage to inlining and testing with the below definition instead, 
+-- as in Jamie's benchmarking lecture. Maybe try it later.
 -- trainMany dataSet nn = go train dataSet nn 
 --     where
 --         go _ [] !nn = nn

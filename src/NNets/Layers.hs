@@ -1,6 +1,5 @@
-{-
-Re-export of all layer types. 
--}
+-- Re-export of all layer types. 
+
 module NNets.Layers (
     module NNets.Layers.InputLayer,
     module NNets.Layers.DenseLayer

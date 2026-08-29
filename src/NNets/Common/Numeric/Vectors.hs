@@ -1,19 +1,14 @@
+-- This contains the definition of Vector and Matrix types, as well as common operations
+-- with these types required for neural networks. These are designed to be efficient.
+
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DerivingStrategies #-}
-{-
-Module: NNets.Common.Numeric.Vectors
-Description: Defines a type to efficiently store and process vectors and matrices
-
-This contains the definition of Vector and Matrix types, as well as common operations
-with these types required for neural networks.
--}
 
 module NNets.Common.Numeric.Vectors (
-    toVector, toMatrix, -- user functions for creating vectors and matrices
+    toVector, toMatrix,
     Vector, Matrix, 
-    (^+^), (^-^), (^*^), (-#-), (><), (#>), transposeA,
-    vmap, mmap, vfoldl', vhead
+    (^+^), (^-^), (^*^), (-#-), (><), (#>), transposeA, vmap, mmap, vfoldl', vhead
 ) where
 
 import Data.Array.Unboxed
@@ -22,13 +17,12 @@ import Data.Array.MArray
 import Control.Monad.ST
 import Control.Monad
 import Data.Array.Base
-import Numeric (showFFloat)
-{-
-Custom index types strict in its arguments to avoid laziness.
 
-Unpack means the ints are stored directly with constructors (not as ptrs). 
-Under the hood, functionally equv. to Idx2 Int# Int#, but saves hassle of dealing with # methods.
--}
+
+-- Custom index types strict in its arguments to avoid laziness.
+-- Unpack means the ints are stored directly with constructors (not as ptrs). 
+-- Under the hood, functionally equv. to Idx2 Int# Int#, but saves hassle of dealing with # methods.
+
 newtype Idx1 = Idx1 Int
     deriving newtype (Eq, Ord, Ix, Show)
 
@@ -42,7 +36,7 @@ toVector :: [Double] -> Vector
 toVector v = Vector (listArray (Idx1 0, Idx1 (length v - 1)) v)
 
 toMatrix :: [[Double]] -> Matrix
-toMatrix [[]] = Matrix (listArray (Idx2 0 0, Idx2 0 (-1)) []) -- head warning go byebye
+toMatrix [[]] = Matrix (listArray (Idx2 0 0, Idx2 0 (-1)) []) -- need the -1 for truly empty
 toMatrix vs@(v:_) = Matrix (listArray (Idx2 0 0, Idx2 (length vs - 1) (length v - 1)) (concat vs))
 
 -- does what you think it does
@@ -63,21 +57,7 @@ instance Show Vector where
 instance Show Matrix where 
     show (Matrix m) = let (_, Idx2 _ width) = bounds m
                         in unlines (map (show . roundTo2dp) (chunksOf (width+1) (elems m)))
-                        -- unlines :: [String] -> String, adds newlines between each
-
-
-
--- slight rant: how the hell do you do an if then in haskell. I don't want the else here.
--- and using maybe in the below is so overkill like I just want to use `pseq`
-
--- checkRangeSizes :: (Ix i, IArray a e1, IArray a e2) => a i e1 -> a i e2 -> String -> Maybe String
--- checkRangeSizes xs ys funcName = if rxs == rys then Nothing else Just errmsg
---     where
---         rxs = rangeSize (bounds xs)
---         rys = rangeSize (bounds ys)
---         errmsg = "range sizes on " ++ funcName ++ " not equal: " 
---                 ++ show rxs ++ " vs " ++ show rys
-
+                        -- unlines adds newlines between each
 
 
 -- A generic zipWith function for Vector and Matrix types. Corresponds to elementwise operations.
@@ -125,6 +105,7 @@ Matrix matx -#- Matrix maty
     | otherwise = Matrix (zipWithA (-) matx maty)
 
 -- outer product (i.e. u >< v = u x v^T)
+-- this can't have bounds errors if you think about it
 (><) :: Vector -> Vector -> Matrix
 Vector v1 >< Vector v2 = Matrix $ runSTUArray $ do 
     let (_, Idx1 n) = bounds v1
@@ -138,7 +119,7 @@ Vector v1 >< Vector v2 = Matrix $ runSTUArray $ do
     return res
 
 -- matrix-vector multiplication:
--- the bounds check per matrix is not really a huge performance hit; keep it
+-- the bounds check per matrix is not really a huge performance hit, so keeping it
 -- until end of project then remove because this was catching bugs
 (#>) :: Matrix -> Vector -> Vector
 Matrix mat #> Vector v = Vector $ runSTUArray $ do
@@ -179,5 +160,7 @@ vhead :: Vector -> Double
 vhead (Vector v) = unsafeAt v 0
 
 -- clips the vectors' values so that for each element, |element| < x , (x > 0)
+-- keeping it for now in case of any unexpected blowups later. 
+-- No issues right now though.
 clipVec :: Double -> Vector -> Vector
 clipVec x = vmap (\y -> if y > 0 then min x y else max (-x) y) 

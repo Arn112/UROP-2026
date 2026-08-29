@@ -1,7 +1,4 @@
-{-
-Module: NNets.Common.Numeric
-Description: Re-export of all important numeric functions for the rest of the library
--}
+-- Re-export of all important numeric functions for the rest of the library
 
 module NNets.Common.Numeric (
     module NNets.Common.Numeric.Vectors,

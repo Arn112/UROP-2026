@@ -1,10 +1,5 @@
--- {-# LANGUAGE UnboxedTuples, BangPatterns #-}
--- {-# LANGUAGE Strict #-}
-{-
-Module: NNets
-Description: The final re-export of all modules required for User API. 
-This is the only module users will import.
--}
+-- The final re-export of all modules required for User API. 
+-- This is the only module users will import.
 
 module NNets (
     module NNets.Common, 

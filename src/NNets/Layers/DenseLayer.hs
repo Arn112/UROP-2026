@@ -1,13 +1,7 @@
-{-# LANGUAGE UndecidableInstances, ViewPatterns, PatternSynonyms #-}
-{-
-Module: NNets.Types.Layers.InputLayer
-Description: Implementation of the general input layer to be used in any network
--}
+-- Implementation of the general dense layer to be used in any network
 
-{-
-This file contains the definition of the general dense layer to be used by every
-neural network. 
--}
+{-# LANGUAGE UndecidableInstances, ViewPatterns, PatternSynonyms #-}
+
 module NNets.Layers.DenseLayer ( denseLayer, DenseLayer, pattern DenseLayer' ) where
 
 import NNets.Common
@@ -52,7 +46,6 @@ backward ws bs (BackProp al (alPrev : als) ws' ds' desiredOutput layerIndex) =
         !blNew = bs ^-^ vmap (*learningRate) dlNew
         -- ∂C/∂b_j = delta_j(l)
     in (wlNew, blNew, BackProp alPrev als ws dlNew desiredOutput (layerIndex + 1))
-
 
 -- eval will give us the function for backpropagating over the rest of
 -- the deeper layers (I.e. towards the input layer). We just need to 

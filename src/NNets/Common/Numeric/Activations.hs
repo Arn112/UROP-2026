@@ -1,7 +1,6 @@
-{-
-Description: just for activation functions. Doesn't make sense to put them in vectors.
-Will be more relevant when more are added
--}
+-- just for activation functions. Doesn't make sense to put them in vectors file.
+-- Will be more relevant when more are added
+
 module NNets.Common.Numeric.Activations where
 
 import NNets.Common.Numeric.Vectors

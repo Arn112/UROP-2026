@@ -1,6 +1,5 @@
-{-
-Re-export of all common functionality (i.e. files in the Common directory)
--}
+-- Re-export of all common functionality (i.e. files in the Common directory)
+
 module NNets.Common (
     module NNets.Common.Algebras,
     module NNets.Common.BackProp,

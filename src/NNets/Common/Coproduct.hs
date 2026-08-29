@@ -1,9 +1,8 @@
+-- Contains functor coproduct definition and definition of a 'contains' style operator
+-- following data types a la carte, as the original paper does.
+
 {-# LANGUAGE TypeOperators #-}
-{-
-Module: NNets.Common.Coproduct
-Description: Contains functor coproduct definition and definition of a 'contains' style operator
-            following data types a la carte. 
--}
+
 module NNets.Common.Coproduct where
 
 infixr 5 :+:
@@ -24,7 +23,6 @@ instance (Functor f, Functor (f :+: g)) => f :<: (f :+: g) where
     prj (L x) = Just x
     prj _ = Nothing
 
--- i'm not sure if we need the following instance but
 instance (Functor g, Functor (f :+: g)) => g :<: (f :+: g) where
     inj = R
 
