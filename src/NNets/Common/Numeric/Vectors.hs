@@ -11,9 +11,10 @@ with these types required for neural networks.
 
 module NNets.Common.Numeric.Vectors (
     toVector, toMatrix, -- user functions for creating vectors and matrices
-    Vector, Matrix, 
+    Vector, Matrix, Tensor(..), Filter, SpatExt, Stride,
     (^+^), (^-^), (^*^), (-#-), (><), (#>), transposeA,
-    vmap, mmap, vfoldl', vhead
+    vmap, mmap, vfoldl', vhead, matToVec,
+    convolution, pool
 ) where
 
 import Data.Array.Unboxed
@@ -21,8 +22,11 @@ import Data.Array.ST
 import Data.Array.MArray
 import Control.Monad.ST
 import Control.Monad
+import Data.STRef
 import Data.Array.Base
-import Numeric (showFFloat)
+
+import Debug.Trace (trace)
+
 {-
 Custom index types strict in its arguments to avoid laziness.
 
@@ -37,6 +41,12 @@ data Idx2 = Idx2 {-# UNPACK #-} !Int {-# UNPACK #-} !Int
 
 newtype Vector = Vector (UArray Idx1 Double) deriving newtype (Eq)
 newtype Matrix = Matrix (UArray Idx2 Double) deriving newtype (Eq)
+
+{-
+We have to go down the tensor route. No tensor would been changing between Vector and Matrix or writing all the nice matrix ops
+to deal with vectors too. Tensors are just more extensible and easier than nothing.
+-}
+data Tensor = TVec Vector | TMat Matrix
 
 toVector :: [Double] -> Vector
 toVector v = Vector (listArray (Idx1 0, Idx1 (length v - 1)) v)
@@ -65,7 +75,9 @@ instance Show Matrix where
                         in unlines (map (show . roundTo2dp) (chunksOf (width+1) (elems m)))
                         -- unlines :: [String] -> String, adds newlines between each
 
-
+instance Show Tensor where
+    show (TVec v) = show v
+    show (TMat m) = show m
 
 -- slight rant: how the hell do you do an if then in haskell. I don't want the else here.
 -- and using maybe in the below is so overkill like I just want to use `pseq`
@@ -146,7 +158,7 @@ Matrix mat #> Vector v = Vector $ runSTUArray $ do
     when (m + 1 /= rangeSize (bounds v)) $ 
         error $ "dimension error in matrix multiplication. Matrix has dimension " 
                 ++ show (n+1) ++ ", " ++ show (m+1) ++ ", vector has " ++ show (rangeSize (bounds v))
-    res <- newArray_ (Idx1 0, Idx1 n) -- res :: STUArray
+    res <- newArray_ (Idx1 0, Idx1 n) -- res :: STUArray, uninitialised
     forM_ [0..n] $ \i -> do
         let loop j !acc
               | j > m = acc
@@ -181,3 +193,84 @@ vhead (Vector v) = unsafeAt v 0
 -- clips the vectors' values so that for each element, |element| < x , (x > 0)
 clipVec :: Double -> Vector -> Vector
 clipVec x = vmap (\y -> if y > 0 then min x y else max (-x) y) 
+
+
+
+------------------ New functions for CNN integration: --------------------
+type Filter = Matrix
+type SpatExt = Int
+type Stride = Int
+
+-- the implementation of a concat function but for Matrices to Vectors. Simply a case of 
+-- changing the index type since the elements are already unstructured. Ixmap means the 
+-- conversion function is called every time when indexing, but since we're processing it
+-- once for construction of future layer (and maybe in backward too) then it's not too deep.
+matToVec :: Matrix -> Vector
+matToVec (Matrix mat) = Vector (ixmap (Idx1 0, Idx1 ((h+1)*(w+1)-1)) conversion mat)
+    where
+        (_, Idx2 h w) = bounds mat
+        conversion :: Idx1 -> Idx2
+        conversion (Idx1 i) = Idx2 (i `div` (w+1)) (i `mod` (w+1))
+
+-- convolution operation (technically cross correlation). It is quite an expensive operation, 
+-- and for now I'm going to keep it naive. There are faster implementations but for small
+-- test networks this should suffice.
+-- currently implemented for one filter. applies bias and ReLU before returning.
+-- precondition: matrix >= filter in both dimensions
+convolution :: Matrix -> Filter -> Double -> Matrix
+convolution (Matrix inp) (Matrix filter) bias = Matrix $ runSTUArray $ do
+    let (_, Idx2 n m) = bounds inp
+        (_, Idx2 h w) = bounds filter
+    
+    when (n < h || m < w) $ error "filter is larger than matrix in one or both dimensions"
+
+    res <- newArray_ (Idx2 0 0, Idx2 (n-h) (m-w)) -- n-h and m-w are indices remember
+    forM_ [0..(n-h)] $ \i_offset -> do 
+        forM_ [0..(m-w)] $ \j_offset -> do
+            -- for every element in res, compute dot product of filter and inp and sum.
+            sum <- newSTRef 0
+            forM_ [0..h] $ \i -> do
+                forM_ [0..w] $ \j -> do
+                    let x = i_offset + i
+                        y = j_offset + j
+                        -- dot product:
+                        value = unsafeAt inp (x * (m+1) + y) * unsafeAt filter (i * (w+1) + j)
+                    modifySTRef sum (+ value) -- sum
+            sum' <- readSTRef sum -- final sum
+            unsafeWrite res (i_offset * (m-w+1) + j_offset) (max 0.0 (sum' + bias))
+            -- applied relu and bias before returning
+    return $ trace "finished conv successfully" res
+
+-- max pool operation. takes the maximum in each 'window' of size spatExt x spatExt
+-- preconditions: stride <= spatial extent, both dimension spacing divisible by stride
+-- there is probably some prefix maximum / minimum trick here, but for now keeping it simple.
+-- time complexity: O(nm)
+pool :: Matrix -> SpatExt -> Stride -> Matrix
+pool (Matrix inp) spatExt stride = Matrix $ runSTUArray $ do
+    let (_, Idx2 n m) = bounds inp
+    
+    when (stride > spatExt || (n+1-spatExt) `mod` stride /= 0 || (m+1-spatExt) `mod` stride /= 0) $ 
+        error $ unlines ["pooling operation invalid. ensure stride <= spatExt and both n,m \
+            \ divisible by stride. Relevant values are: n, m, spatExt, stride: ", show n, 
+            show m, show spatExt, show stride]
+    
+    let n' = (n+1 - spatExt) `div` stride -- result height index (actual height is this + 1)
+        m' = (m+1 - spatExt) `div` stride -- result width index (actual width is this + 1)
+    res <- newArray_ (Idx2 0 0, Idx2 n' m')
+    forM_ [0..n'] $ \i -> do
+        forM_ [0..m'] $ \j -> do
+            -- for every single result point, find the spatext x spatext 
+            -- window corresponding to that result and then take the maximum over it.
+            let start_i = stride * i
+                start_j = stride * j
+            maxInWindow <- newSTRef $ unsafeAt inp (start_i * (m+1) + start_j)
+            forM_ [0..(spatExt-1)] $ \offset_i -> do
+                forM_ [0..(spatExt-1)] $ \offset_j -> do
+                    let elm = unsafeAt inp ((start_i + offset_i) * (m+1) + (start_j + offset_j))
+                    modifySTRef maxInWindow (`max` elm)
+            windowMax <- readSTRef maxInWindow
+            unsafeWrite res (i * (m' + 1) + j) windowMax
+    return $ trace "finished pool successfully" res
+
+
+

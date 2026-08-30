@@ -17,3 +17,7 @@ sigmoid = vmap (\x -> 1 / (1 + exp (-x)))
 -- (this is because input will usually be activation a, not raw z)
 sigmoidInv' :: Vector -> Vector
 sigmoidInv' = vmap (\x -> x * (1 - x))
+
+-- ReLU activation function. ReLU (x) = max (0, x)
+relu :: Vector -> Vector
+relu = vmap (max 0)

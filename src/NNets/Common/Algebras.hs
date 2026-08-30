@@ -48,3 +48,12 @@ class Functor f => AlgPrint f where
 instance (AlgPrint f, AlgPrint g) => AlgPrint (f :+: g) where
     algPrint (L ft) = algPrint ft
     algPrint (R gt) = algPrint gt
+
+
+----------- New algebras for integrating with CNNs: ---------------------
+class Functor f => AlgFwdNew f where
+    algFwdNew :: f (Tensor -> [Tensor]) -> (Tensor -> [Tensor])
+
+instance (AlgFwdNew f, AlgFwdNew g) => AlgFwdNew (f :+: g) where
+    algFwdNew (L ft) = algFwdNew ft
+    algFwdNew (R gt) = algFwdNew gt

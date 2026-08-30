@@ -4,6 +4,7 @@
 module NNets.Train (
     trainMany,
     forwardProp,
+    forwardPropConv,
     learningRate,
     module NNets.Training.Initialise
 ) where

@@ -5,7 +5,7 @@ cabal-version:      3.0
 --   http://haskell.org/cabal/users-guide/
 --
 -- The name of the package.
-name:               simple
+name:               freenetworks
 
 -- The package version.
 -- See the Haskell package versioning policy (PVP) for standards
@@ -31,7 +31,48 @@ author:             Arnav Maniyar
 -- An email address to which users can send suggestions, bug reports, and patches.
 maintainer:         avm25@ic.ac.uk
 
-library nnets
+-- library nnets
+--     exposed-modules: NNets
+--     other-modules:  NNets.Common, 
+--                     NNets.Common.Algebras,
+--                     NNets.Common.BackProp,
+--                     NNets.Common.Coproduct,
+--                     NNets.Common.Free,
+--                     NNets.Common.Numeric,
+--                     NNets.Common.Numeric.Types,
+--                     NNets.Common.Numeric.Vectors,
+--                     NNets.Common.Numeric.Activations,
+--                     NNets.Layers,
+--                     NNets.Layers.DenseLayer,
+--                     NNets.Layers.InputLayer,
+--                     NNets.Training.Propagations,
+--                     NNets.Training.Initialise,
+--                     NNets.Train,
+--                     NNets.Debug.PrintNets
+--     build-depends: base >=4.12.0.0, array, random
+--     hs-source-dirs: src
+--     default-language: GHC2021
+--     -- default-extensions: Strict 
+
+-- benchmark ann-warray-bench
+--     type: exitcode-stdio-1.0
+--     build-depends:
+--         base,
+--         tasty,
+--         tasty-bench,
+--         deepseq,
+--         nnets,
+--         random,
+--         random-shuffle,
+--         array
+--     hs-source-dirs: benchmark
+--     default-language: GHC2021
+--     main-is: AnnTest.hs
+--     ghc-options:    -rtsopts
+--     -- default-extensions: Strict
+
+
+library convnets
     exposed-modules: NNets
     other-modules:  NNets.Common, 
                     NNets.Common.Algebras,
@@ -45,6 +86,9 @@ library nnets
                     NNets.Layers,
                     NNets.Layers.DenseLayer,
                     NNets.Layers.InputLayer,
+                    NNets.Layers.ConvLayer,
+                    NNets.Layers.PoolLayer,
+                    NNets.Layers.FlattenLayer,
                     NNets.Training.Propagations,
                     NNets.Training.Initialise,
                     NNets.Train,
@@ -52,22 +96,9 @@ library nnets
     build-depends: base >=4.12.0.0, array, random
     hs-source-dirs: src
     default-language: GHC2021
-    -- default-extensions: Strict 
 
-benchmark ann-warray-bench
-    type: exitcode-stdio-1.0
-    build-depends:
-        base,
-        tasty,
-        tasty-bench,
-        deepseq,
-        nnets,
-        random,
-        random-shuffle,
-        array
-    hs-source-dirs: benchmark
+executable convnets-test
+    main-is: ConvForwardPropTest.hs
     default-language: GHC2021
-    main-is: fastListExamples.hs
-    ghc-options:    -rtsopts
-    -- default-extensions: Strict
-
+    hs-source-dirs: tests
+    build-depends: base >=4.12.0.0, convnets

@@ -26,3 +26,10 @@ forwardProp = eval genFwd algFwd
 
 backPropagate :: forall f a. (InputLayer :<: f, AlgBwd f f) => Free f a -> (BackProp -> Free f a)
 backPropagate = eval genBwd algBwd
+
+------------------ New instances for CNN integration: --------------------
+genFwdNew :: a -> (Tensor -> [Tensor])
+genFwdNew = const (: [])
+
+forwardPropConv :: AlgFwdNew f => Free f a -> (Tensor -> [Tensor])
+forwardPropConv = eval genFwdNew algFwdNew

@@ -42,3 +42,11 @@ instance AlgPrint InputLayer where
 
 
 
+
+
+------------------ New instances for CNN integration: --------------------
+instance AlgFwdNew InputLayer where
+    algFwdNew InputLayer = (: []) -- simplified lambda
+
+
+

@@ -62,6 +62,8 @@ instance (DenseLayer :<: f) => AlgBwd DenseLayer f where
     algBwd (DenseLayer ws bs nextLayersFunc) backPropForCurr = 
         let (!wlNew, !blNew, !backPropForNext) = backward ws bs backPropForCurr
         in Op (inj (DenseLayer wlNew blNew (nextLayersFunc backPropForNext)))
+-- does GHC optimise this so that it doesn't do composition and executes it in order?
+-- rather than going deep, creating lambda, then calling it later?
 
 -- this is fine because we right associate.
 instance AlgPrint DenseLayer where
@@ -69,3 +71,17 @@ instance AlgPrint DenseLayer where
         where
             thisLayer = unlines ["dense layer: ", "ws: ", show ws, "bs: ", 
                                 show bs, "--------------- \n"]
+
+
+
+
+
+
+
+------------------ New instances for CNN integration: --------------------
+instance AlgFwdNew DenseLayer where
+    algFwdNew (DenseLayer wl bl forwardPass) inp = 
+        let vs@(TVec vals : _) = forwardPass inp
+            !cvals = TVec (sigmoid ((wl #> vals) ^+^ bl))
+        in cvals : vs
+
