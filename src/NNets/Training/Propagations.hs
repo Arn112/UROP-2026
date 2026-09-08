@@ -33,3 +33,9 @@ genFwdNew = const (: [])
 
 forwardPropConv :: AlgFwdNew f => Free f a -> (Tensor -> [Tensor])
 forwardPropConv = eval genFwdNew algFwdNew
+
+genBwdNew :: (InputLayer :<: f) => a -> (BackPropNew -> Free f a) 
+genBwdNew _ = const (Op (inj InputLayer))
+
+backPropagateCNN :: forall f a. (InputLayer :<: f, AlgBwdNew f f) => Free f a -> (BackPropNew -> Free f a)
+backPropagateCNN = eval genBwdNew algBwdNew

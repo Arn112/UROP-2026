@@ -6,7 +6,8 @@ module NNets.Train (
     forwardProp,
     forwardPropConv,
     learningRate,
-    module NNets.Training.Initialise
+    module NNets.Training.Initialise,
+    trainCNN
 ) where
 
 import NNets.Training.Propagations
@@ -37,3 +38,18 @@ trainMany dataSet nn = foldl' (flip train) nn dataSet
 --     where
 --         go _ [] !nn = nn
 --         go train (d:ds) !nn = go train ds (train d nn)
+
+
+
+------------------ New instances for CNN integration: --------------------
+-- unforunately we can only have desired output as a Vector right now. To change this, we 
+-- would have to add a layerIndex == 0 condition for every single layer and describe what to do
+-- if that was the final layer. It isn't too bad but I haven't added it yet. 
+trainCNN :: (InputLayer :<: f, AlgFwdNew f, AlgBwdNew f f) => (Tensor, Vector) -> Free f a -> Free f a
+trainCNN (inp, desout) nn =
+    let emptyArray = toVector [0]
+        emptyTwoDimArray = toMatrix [[0]]
+
+        h :: [Tensor] -> BackPropNew
+        h (val : vals) = BackPropMLP val vals emptyTwoDimArray emptyArray desout 0
+    in (backPropagateCNN nn . h . forwardPropConv nn) inp

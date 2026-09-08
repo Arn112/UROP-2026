@@ -98,7 +98,7 @@ library convnets
     default-language: GHC2021
 
 executable convnets-test
-    main-is: ConvForwardPropTest.hs
+    main-is: ConvBackwardTests.hs
     default-language: GHC2021
     hs-source-dirs: tests
     build-depends: base >=4.12.0.0, convnets

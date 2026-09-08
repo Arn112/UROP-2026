@@ -13,8 +13,8 @@ module NNets.Common.Numeric.Vectors (
     toVector, toMatrix, -- user functions for creating vectors and matrices
     Vector, Matrix, Tensor(..), Filter, SpatExt, Stride,
     (^+^), (^-^), (^*^), (-#-), (><), (#>), transposeA,
-    vmap, mmap, vfoldl', vhead, matToVec,
-    convolution, pool
+    vmap, mmap, vfoldl', vhead, matToVec, mheight, mwidth, vlength,
+    convolution, pool, reshape, padMatrixN, rotatePi, reversePool, (^**^)
 ) where
 
 import Data.Array.Unboxed
@@ -130,6 +130,12 @@ Vector v1 ^*^ Vector v2
     | rangeSize (bounds v1) /= rangeSize (bounds v2) = error "range sizes on zipWithA are not equal on hadamard prod"
     | otherwise = Vector (zipWithA (*) v1 v2)
 
+-- matrix dot product
+(^**^) :: Matrix -> Matrix -> Matrix
+Matrix m1 ^**^ Matrix m2 
+    | bounds m1 /= bounds m2 = error "matrix bounds on zipWithA are not equal on matrix dot prod"
+    | otherwise = Matrix (zipWithA (*) m1 m2)
+
 -- matrix subtraction
 (-#-) :: Matrix -> Matrix -> Matrix
 Matrix matx -#- Matrix maty 
@@ -239,7 +245,8 @@ convolution (Matrix inp) (Matrix filter) bias = Matrix $ runSTUArray $ do
             sum' <- readSTRef sum -- final sum
             unsafeWrite res (i_offset * (m-w+1) + j_offset) (max 0.0 (sum' + bias))
             -- applied relu and bias before returning
-    return $ trace "finished conv successfully" res
+    -- return $ trace "finished conv successfully" res
+    return res
 
 -- max pool operation. takes the maximum in each 'window' of size spatExt x spatExt
 -- preconditions: stride <= spatial extent, both dimension spacing divisible by stride
@@ -270,7 +277,97 @@ pool (Matrix inp) spatExt stride = Matrix $ runSTUArray $ do
                     modifySTRef maxInWindow (`max` elm)
             windowMax <- readSTRef maxInWindow
             unsafeWrite res (i * (m' + 1) + j) windowMax
-    return $ trace "finished pool successfully" res
+    -- return $ trace "finished pool successfully" res
+    return res
+
+-- reshape (i.e. vec to mat) takes a vector and integers n,m and turns it into 
+-- an n x m matrix (not necessarily a square). Again, we aren't scared to use 
+-- Ixmap, because number of accesses is small.
+reshape :: Int -> Int -> Vector -> Matrix
+reshape n m (Vector vec) 
+    | n * m /= (k+1) = error "vector cannot be reshaped into given size"
+    | otherwise = Matrix (ixmap (Idx2 0 0, Idx2 (n-1) (m-1)) conversion vec) 
+    where
+        (_, Idx1 k) = bounds vec
+        conversion :: Idx2 -> Idx1
+        conversion (Idx2 i j) = Idx1 (i * m + j)
+
+-- pads a matrix with x layers of zeroes enveloping the entire matrix. 
+-- constructing a new copy is inevitable since bounds are baked in and now we need
+-- them to change. 
+padMatrixN :: Int -> Matrix -> Matrix
+padMatrixN x (Matrix mat) = Matrix $ runSTUArray $ do
+    when (x < 0) $ error "invalid padding number. must be non-negative"
+    let (_, Idx2 n m) = bounds mat
+        n' = n + 2 * x
+        m' = m + 2 * x
+    res <- newArray (Idx2 0 0, Idx2 n' m') 0.0 -- initialises all to 0
+    forM_ [0..n] $ \i -> do
+        forM_ [0..m] $ \j -> do
+            -- writes at (i+x, j+x) the value at (i,j)
+            unsafeWrite res ((i + x) * (m' + 1) + (j + x)) (unsafeAt mat (i * (m+1) + j))
+    return res
 
 
+-- rotates the matrix by 180 degrees, i.e. pi radians
+rotatePi :: Matrix -> Matrix
+rotatePi (Matrix mat) = Matrix $ ixmap bs conversion mat
+    where
+        bs@(_, Idx2 n m) = bounds mat
+        conversion :: Idx2 -> Idx2
+        conversion (Idx2 i j) = Idx2 (n-i) (m-j)
 
+-- height and width functions for accessing height and width properties of matrix
+-- also a length property for vectors
+mheight :: Matrix -> Int
+mheight (Matrix mat) = let (_, Idx2 n m) = bounds mat in (n+1)
+
+mwidth :: Matrix -> Int
+mwidth (Matrix mat) = let (_, Idx2 n m) = bounds mat in (m+1)
+
+vlength :: Vector -> Int
+vlength (Vector vec) = let (_, Idx1 n) = bounds vec in (n+1)
+
+-- backprop for max pooling: for every window, distribute the incoming gradient
+-- (dLdZ) back onto whichever input position(s) achieved the max in that window
+-- (everywhere else gets 0). If a window has several elements tied for the max,
+-- the gradient is split equally between them. Windows can overlap so in this case,
+-- we do sum instead of just replacing value, so that they can add up.
+-- precondition: 'out' and 'dLdZ' have the same shape, and are consistent with
+-- what (pool inp spatExt stride) would have produced.
+reversePool :: Matrix -> Matrix -> Matrix -> SpatExt -> Stride -> Matrix
+reversePool (Matrix inp) (Matrix out) (Matrix dLdZ) spatExt stride
+    | bounds out /= bounds dLdZ = error "reversePool: 'out' and 'dLdZ' must have the same shape"
+    | otherwise = Matrix $ runSTUArray $ do
+        let (_, Idx2 n m)   = bounds inp
+            (_, Idx2 n' m') = bounds out
+
+        res <- newArray (Idx2 0 0, Idx2 n m) 0.0 -- ∂L/∂X, starts all zero
+
+        forM_ [0..n'] $ \i -> do
+            forM_ [0..m'] $ \j -> do
+                let start_i = stride * i
+                    start_j = stride * j
+                    target  = unsafeAt out  (i * (m'+1) + j) -- max value this window produced
+                    grad    = unsafeAt dLdZ (i * (m'+1) + j) -- gradient flowing back into it
+
+                -- first pass to find how many positions tie for maximum and split gradient
+                -- accordingly
+                countRef <- newSTRef (0 :: Int)
+                forM_ [0..(spatExt-1)] $ \oi ->
+                    forM_ [0..(spatExt-1)] $ \oj -> do
+                        let v = unsafeAt inp ((start_i+oi) * (m+1) + (start_j+oj))
+                        when (v == target) $ modifySTRef' countRef (+1)
+                cnt <- readSTRef countRef
+                when (cnt == 0) $ error "cnt was 0, how is this even possible"
+                let share = grad / fromIntegral cnt
+
+                -- second pass, add the split gradient onto every tied position in ∂L/∂X
+                forM_ [0..(spatExt-1)] $ \oi ->
+                    forM_ [0..(spatExt-1)] $ \oj -> do
+                        let idx = (start_i+oi) * (m+1) + (start_j+oj)
+                        when (unsafeAt inp idx == target) $ do
+                            v <- unsafeRead res idx
+                            unsafeWrite res idx (v + share)
+                            -- adding on the share rather than setting it, += behaviour
+        return res

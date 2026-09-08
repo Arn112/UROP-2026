@@ -57,3 +57,10 @@ class Functor f => AlgFwdNew f where
 instance (AlgFwdNew f, AlgFwdNew g) => AlgFwdNew (f :+: g) where
     algFwdNew (L ft) = algFwdNew ft
     algFwdNew (R gt) = algFwdNew gt
+
+class AlgBwdNew g f where
+    algBwdNew :: g (BackPropNew -> Free f a) -> (BackPropNew -> Free f a)
+
+instance (AlgBwdNew g f, AlgBwdNew h f) => AlgBwdNew (g :+: h) f where
+    algBwdNew (L fx) = algBwdNew fx
+    algBwdNew (R gx) = algBwdNew gx

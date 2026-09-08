@@ -48,5 +48,5 @@ instance AlgPrint InputLayer where
 instance AlgFwdNew InputLayer where
     algFwdNew InputLayer = (: []) -- simplified lambda
 
-
-
+instance (InputLayer :<: f) => AlgBwdNew InputLayer f where
+    algBwdNew InputLayer = const (Op (inj InputLayer))

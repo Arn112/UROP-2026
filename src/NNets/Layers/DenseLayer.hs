@@ -85,3 +85,29 @@ instance AlgFwdNew DenseLayer where
             !cvals = TVec (sigmoid ((wl #> vals) ^+^ bl))
         in cvals : vs
 
+{-# INLINE backwardMLP #-} -- hopefully it gets rid of the tuple 
+backwardMLP :: Weights -> Biases -> BackPropNew -> (Weights, Biases, BackPropNew)
+backwardMLP ws bs (BackPropMLP (TVec al) (TVec alPrev : als) ws' ds' desiredOutput layerIndex) =
+    let !dlNew = case layerIndex of
+            0 -> (al ^-^ desiredOutput) ^*^ sigmoidInv' al
+            -- delta_j(L) = (a_j(L) - y_j) * sigma'(z_j(L))
+            _ -> (transposeA ws' #> ds') ^*^ sigmoidInv' al
+            -- delta_l = ((w_l+1)^T delta_l+1) ^*^ sigma'(z_l)
+        !wlNew = ws -#- mmap (*learningRate) (dlNew >< alPrev)
+        -- ∂C/∂w_jk = a_k(l-1) * delta_j(l)
+        !blNew = bs ^-^ vmap (*learningRate) dlNew
+        -- ∂C/∂b_j = delta_j(l)
+    in (wlNew, blNew, BackPropMLP (TVec alPrev) als ws dlNew desiredOutput (layerIndex + 1))
+
+
+-- eval will give us the function for backpropagating over the rest of
+-- the deeper layers (I.e. towards the input layer). We just need to 
+-- incorporate the current layer's changes into it, and insert the updated layer
+-- to build up the updated network. 
+instance (DenseLayer :<: f) => AlgBwdNew DenseLayer f where
+    algBwdNew (DenseLayer ws bs nextLayersFunc) backPropForCurr = 
+        let (!wlNew, !blNew, !backPropForNext) = backwardMLP ws bs backPropForCurr
+        in Op (inj (DenseLayer wlNew blNew (nextLayersFunc backPropForNext)))
+-- does GHC optimise this so that it doesn't do composition and executes it in order?
+-- rather than going deep, creating lambda, then calling it later?
+
