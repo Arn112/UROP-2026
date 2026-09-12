@@ -6,6 +6,9 @@ Description: Contains the free monad definition and the eval and build functions
 -}
 module NNets.Common.Free where
 
+-- deriving functor with the Pure sees an a and just applies f to it
+-- for the Op case, it sees another type inside which mentions a, so it
+-- fmaps over it
 data Free f a = Op (f (Free f a)) | Pure a deriving Functor
 
 instance Functor f => Applicative (Free f) where
