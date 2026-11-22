@@ -1,5 +1,8 @@
 import Codec.Compression.GZip (decompress)
+import Data.ByteString qualified as B
 import qualified Data.ByteString.Lazy as BS
+import Control.Exception (evaluate)
+import Data.ByteString.Unsafe qualified as BU
 import Data.Functor
 import System.Random
 import Data.List (maximumBy)
@@ -7,15 +10,25 @@ import Data.Ord (comparing)
 import NNets
 import qualified Data.List.NonEmpty as NE
 
--- Helper functions. Copied from https://crypto.stanford.edu/~blynn/haskell/brain.html
+-- Helper functions. Inspired from https://crypto.stanford.edu/~blynn/haskell/brain.html
 render n = let s = " .:oO@" in s !! (fromIntegral n * length s `div` 256)
 
-getImage s n = fromIntegral . BS.index s . (n*28^2 + 16 +) <$> [0..28^2 - 1]
-getX     s n = (/ 256) <$> getImage s n
-getLabel s n = fromIntegral $ BS.index s (n + 8)
+-- here, WHNF = NF, so evaluate forces the full thing
+loadGz :: FilePath -> IO B.ByteString
+loadGz p = BS.readFile p >>= evaluate . BS.toStrict . decompress
+
+-- unsafe indexing is pointer arithmetic compared to normal lazy indexing which
+-- was linked list traversal
+getX :: B.ByteString -> Int -> [Double]
+getX s n = [fromIntegral (BU.unsafeIndex s (n * 784 + 16 + i)) / 256 | i <- [0 .. 783]]
+
+getLabel :: B.ByteString -> Int -> Int
+getLabel s n = fromIntegral (BU.unsafeIndex s (n + 8))
+
+getY :: (Num b) => B.ByteString -> Int -> [b]
 getY     s n = fromIntegral . fromEnum . (getLabel s n ==) <$> [0..9]
 
-trainingData :: BS.ByteString -> BS.ByteString -> [(Vector, Vector)]
+trainingData :: B.ByteString -> B.ByteString -> [(Vector, Vector)]
 trainingData trainI trainL =
     [(toVector $ getX trainI n, toVector $ getY trainL n) | n <- [0..59999]]
 
@@ -24,7 +37,7 @@ predictDigit inp nn =
     let output = (NE.head . forwardProp nn . toVector) inp
     in (fst . maximumBy (comparing snd) . zip [0..]) (fromVector output)
 
-checkAccuracy :: BS.ByteString -> BS.ByteString -> Free ANN a -> Double
+checkAccuracy :: B.ByteString -> B.ByteString -> Free ANN a -> Double
 checkAccuracy testI testL nn = 
     let correct = length
             [
@@ -50,7 +63,7 @@ mnistANN = do
 
 -- Training:
 main = do
-    [trainI, trainL, testI, testL] <- mapM ((decompress  <$>) . BS.readFile)
+    [trainI, trainL, testI, testL] <- mapM loadGz
         [ "train-images-idx3-ubyte.gz"
         , "train-labels-idx1-ubyte.gz"
         ,  "t10k-images-idx3-ubyte.gz"
