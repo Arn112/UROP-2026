@@ -10,7 +10,7 @@ with these types required for neural networks.
 -}
 
 module NNets.Common.Numeric.Vectors (
-    toVector, toMatrix, -- user functions for creating vectors and matrices
+    toVector, toMatrix, fromVector, fromMatrix, -- user functions for creating vectors and matrices
     Vector, Matrix, Tensor(..), Filter, SpatExt, Stride,
     (^+^), (^-^), (^*^), (-#-), (><), (#>), transposeA,
     vmap, mmap, vfoldl', vhead, matToVec, mheight, mwidth, vlength,
@@ -54,6 +54,14 @@ toVector v = Vector (listArray (Idx1 0, Idx1 (length v - 1)) v)
 toMatrix :: [[Double]] -> Matrix
 toMatrix [[]] = Matrix (listArray (Idx2 0 0, Idx2 0 (-1)) []) -- head warning go byebye
 toMatrix vs@(v:_) = Matrix (listArray (Idx2 0 0, Idx2 (length vs - 1) (length v - 1)) (concat vs))
+
+fromVector :: Vector -> [Double]
+fromVector (Vector v) = elems v
+
+fromMatrix :: Matrix -> [[Double]]
+fromMatrix (Matrix m) =
+  let (_, Idx2 _ width) = bounds m
+   in chunksOf (width + 1) (elems m)
 
 -- does what you think it does
 -- it's just a helper to print out numbers more compactly

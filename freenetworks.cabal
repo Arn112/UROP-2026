@@ -102,3 +102,9 @@ executable convnets-test
     default-language: GHC2021
     hs-source-dirs: tests
     build-depends: base >=4.12.0.0, convnets
+
+executable mnist-test
+    main-is: MnistTest.hs
+    default-language: GHC2021
+    hs-source-dirs: tests
+    build-depends: base >=4.12.0.0, convnets, zlib, bytestring, random
