@@ -17,6 +17,9 @@ genBwd = error "genBwd is invoked, but there are no pure values in the free tree
 
 forwardProp :: AlgFwd f => Free f a -> (Vector -> NonEmpty Vector)
 forwardProp = eval genFwd algFwd
+-- Hard to know how much work is actually being done when this function is called
+-- It's definitely lazy, but I'm not sure whether it's deallocating the intermediate
+-- results because it doesn't need them for the next layer.
 
 backPropagate :: forall f a. (InputLayer :<: f, AlgBwd f f) => Free f a -> (BackProp -> Free f a)
 backPropagate = eval genBwd algBwd
