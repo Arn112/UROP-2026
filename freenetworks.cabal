@@ -48,7 +48,7 @@ library nnets
                     NNets.Training.Propagations,
                     NNets.Train,
                     NNets.Debug.PrintNets
-    build-depends: base >=4.12.0.0, array, random
+    build-depends: base >=4.12.0.0, array, random, split
     hs-source-dirs: src
     default-language: GHC2021
     -- default-extensions: Strict 
@@ -62,7 +62,8 @@ benchmark ann-warray-bench
         deepseq,
         nnets,
         random,
-        array
+        array,
+        split
     hs-source-dirs: benchmark
     default-language: GHC2021
     main-is: fastListExamples.hs

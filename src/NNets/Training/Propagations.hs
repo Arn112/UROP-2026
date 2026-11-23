@@ -17,10 +17,6 @@ genBwd = error "genBwd is invoked, but there are no pure values in the free tree
 
 forwardProp :: AlgFwd f => Free f a -> (Vector -> NonEmpty Vector)
 forwardProp = eval genFwd algFwd
--- How much work does the call to eval do? Does it build the full function?
--- or does it build it and the result at the same time only when it's required / applied to 
--- the network? Will need to analyse a little more. 
 
 backPropagate :: forall f a. (InputLayer :<: f, AlgBwd f f) => Free f a -> (BackProp -> Free f a)
 backPropagate = eval genBwd algBwd
--- Similar to the above for this - how much is actually being done?

@@ -56,7 +56,9 @@ instance (DenseLayer :<: f) => AlgBwd DenseLayer f where
         let (!wlNew, !blNew, !backPropForNext) = backward ws bs backPropForCurr
         in Op (inj (DenseLayer wlNew blNew (nextLayersFunc backPropForNext)))
 
--- this is fine because we right associate.
+-- this is fine because we right associate. because ++ is lazy, it will
+-- build up everything first then evaluate it right to left, i.e. in the cheapest
+-- possible way.
 instance AlgPrint DenseLayer where
     algPrint (DenseLayer ws bs prevOutput) = thisLayer ++ prevOutput
         where

@@ -17,7 +17,7 @@ import Data.Array.MArray
 import Control.Monad.ST
 import Control.Monad
 import Data.Array.Base
-
+import Data.List.Split (chunksOf)
 
 -- Custom index types strict in its arguments to avoid laziness.
 -- Unpack means the ints are stored directly with constructors (not as ptrs). 
@@ -43,13 +43,6 @@ toMatrix vs@(v:_) = Matrix (listArray (Idx2 0 0, Idx2 (length vs - 1) (length v 
 -- it's just a helper to print out numbers more compactly
 roundTo2dp :: [Double] -> [Double]
 roundTo2dp xs = [fromInteger (round (x * 10000)) / 10000.0 | x <- xs]
-
--- also just a helper to print out matrices more nicely. It was easier to write this
--- than figure out why I couldn't import Data.List.Split
-chunksOf :: Int -> [Double] -> [[Double]]
-chunksOf _ [] = []
-chunksOf n xs = let (chunk, rest) = splitAt n xs
-                in chunk : chunksOf n rest    
 
 instance Show Vector where
     show (Vector v) = show (roundTo2dp (elems v))
@@ -120,7 +113,8 @@ Vector v1 >< Vector v2 = Matrix $ runSTUArray $ do
 
 -- matrix-vector multiplication:
 -- the bounds check per matrix is not really a huge performance hit, so keeping it
--- until end of project then remove because this was catching bugs
+-- until end of project. If this was released as a package then this would
+-- be removed at the end after lots of testing.
 (#>) :: Matrix -> Vector -> Vector
 Matrix mat #> Vector v = Vector $ runSTUArray $ do
     let (_, Idx2 n m) = bounds mat -- pre: m == length of v
@@ -158,9 +152,3 @@ vfoldl' f k (Vector v) = foldlArray' f k v
 -- as well but it's mostly a use site thing for our particular example.
 vhead :: Vector -> Double
 vhead (Vector v) = unsafeAt v 0
-
--- clips the vectors' values so that for each element, |element| < x , (x > 0)
--- keeping it for now in case of any unexpected blowups later. 
--- No issues right now though.
-clipVec :: Double -> Vector -> Vector
-clipVec x = vmap (\y -> if y > 0 then min x y else max (-x) y) 

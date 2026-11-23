@@ -23,12 +23,9 @@ train (inp, desOut) nn =
 
     in (backPropagate nn . h . forwardProp nn) inp
 
+-- Inlining this function and using the inlined style definition (with a helper
+-- which captures the recursion instead) causes a large spike at the end, so
+-- sticking with foldl', but it's not been tested extensively.
 trainMany :: (InputLayer :<: f, AlgFwd f, AlgBwd f f) 
           => [(Vector, Vector)] -> Free f a -> Free f a
 trainMany dataSet nn = foldl' (flip train) nn dataSet
--- There might be an advantage to inlining and testing with the below definition instead, 
--- as in Jamie's benchmarking lecture. Maybe try it later.
--- trainMany dataSet nn = go train dataSet nn 
---     where
---         go _ [] !nn = nn
---         go train (d:ds) !nn = go train ds (train d nn)
