@@ -108,3 +108,9 @@ executable mnist-test
     default-language: GHC2021
     hs-source-dirs: tests
     build-depends: base >=4.12.0.0, convnets, zlib, bytestring, random
+
+executable mnist-test-cnn
+    main-is: MnistTestCNN.hs
+    default-language: GHC2021
+    hs-source-dirs: tests
+    build-depends: base >=4.12.0.0, convnets, zlib, bytestring, random, containers
