@@ -5,3 +5,4 @@ cabal.project.local
 *.hp
 *.eventlog
 *.html
+*.gz
