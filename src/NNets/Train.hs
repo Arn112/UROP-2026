@@ -2,7 +2,7 @@
 -- required for the user.
 
 module NNets.Train (
-    trainMany,
+    trainMany, trainManyCNN,
     forwardProp,
     forwardPropConv,
     learningRate,
@@ -53,3 +53,6 @@ trainCNN (inp, desout) nn =
         h :: [Tensor] -> BackPropNew
         h (val : vals) = BackPropMLP val vals emptyTwoDimArray emptyArray desout 0
     in (backPropagateCNN nn . h . forwardPropConv nn) inp
+
+trainManyCNN :: (InputLayer :<: f, AlgFwdNew f, AlgBwdNew f f) => [(Tensor, Vector)] -> Free f a -> Free f a
+trainManyCNN dataset nn = foldl' (flip trainCNN) nn dataset

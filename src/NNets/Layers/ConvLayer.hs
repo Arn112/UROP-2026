@@ -44,11 +44,14 @@ backwardConvLayer filter bias (BackPropCNN ((TMat reluZ) : (TMat x) : ts) (TMat 
         delX = convolution (padMatrixN (mheight filter - 1) dLdZ) (rotatePi filter) 0.0
     in (delK, delB, TMat delX)
 
+learningRateConv = 0.004
+
 instance (ConvLayer :<: f) => AlgBwdNew ConvLayer f where
     algBwdNew (ConvLayer filter bias nextLayersFunc) backPropForCurr = 
         let (delK, delB, delX) = backwardConvLayer filter bias backPropForCurr
-            updFilter = filter -#- mmap (*learningRate) delK
-            updBias = bias - (learningRate * delB) -- tis a scalar
+            updFilter = filter -#- mmap (* learningRateConv) delK
+            
+            updBias = bias - (learningRateConv * delB) -- tis a scalar
             backPropForNext = BackPropCNN {cnnAs = tail (cnnAs backPropForCurr),
                                            cnnDs' = delX}
         in Op (inj (ConvLayer updFilter updBias (nextLayersFunc backPropForNext)))

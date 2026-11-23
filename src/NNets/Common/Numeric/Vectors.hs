@@ -14,7 +14,8 @@ module NNets.Common.Numeric.Vectors (
     Vector, Matrix, Tensor(..), Filter, SpatExt, Stride,
     (^+^), (^-^), (^*^), (-#-), (><), (#>), transposeA,
     vmap, mmap, vfoldl', vhead, matToVec, mheight, mwidth, vlength,
-    convolution, pool, reshape, padMatrixN, rotatePi, reversePool, (^**^)
+    convolution, pool, reshape, padMatrixN, rotatePi, reversePool, (^**^),
+    chunksOf
 ) where
 
 import Data.Array.Unboxed
