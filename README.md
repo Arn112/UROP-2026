@@ -10,9 +10,9 @@ it makes sense to consider forward and back propagation through the network as a
 fold in the respective direction. This is also possible with lists though (ignoring performance for now), so we 
 want an elegant data structure which allows for an elegant API. It turns out there is a nice set of tools for doing this. 
 
-### Background (Summary of the paper):
+### Background (Summary of the paper)
 
-#### Functors and folding:
+#### Functors and folding
 
 A functor is something you can map over, i.e. apply the same function to every element inside.
 E.g. map (*2) [1,2,3] = [4,5,6]. 
@@ -59,14 +59,14 @@ Ignoring the mathematical details here, you can see how training would be a cata
 by an anamorphism (an unfold). The former would calculate the output, and the latter would build a new network
 with the updated weights and biases. Repeating this many times would train it.
 
-#### Improving Modularity:
+#### Improving Modularity
 There are two problems right now (excluding the obvious one of performance):
 1) Writing this many parentheses is annoying
 2) I can't just reuse my DenseLayer in another type such as a CNN. It's fully connected to the Layer type
 
 The first problem can be fixed with Free monads.
 
-##### Free monad:
+##### Free monad
 `Fix` generalised recursion by giving us an infinite tree. Ours only had one branch because
 we only had one `k` for the list example. Theoretically it could be many. However, the base case never
 stored a value of type `a` itself - it was always an empty constructor.
@@ -83,7 +83,7 @@ Skipping the details, once we write the monad instance, the (>>=) operator then 
         Op InputLayer 
 ```
 
-##### Fixing Modularity:
+##### Fixing Modularity
 It would be good if we had all layers as different types, e.g. DenseLayer, InputLayer, (ConvLayer...) etc.
 Then maybe we could say: 
 
@@ -117,7 +117,7 @@ pushes the RHS into the Pure () of the LHS. The result is something like
 The forward and backprop algebras don't change too much. We just have to ensure we
 provide one algebra for each type of layer, then it will pick the right one automatically via typeclasses.
 
-##### OnlyFolds:
+##### OnlyFolds
 Backprop currently is an anamorphism, but we can also represent it as a normal fold / eval.
 
 The new backprop eval would then build up a function. Remember eval at each stage looks inside the rest
@@ -130,3 +130,14 @@ and biases as thunks because we never force them).
 
 It is possible to train only in a single fold by pairing up the forward and backward passes into one pair
 structure, but it's quite obfuscated.
+
+
+### My Changes
+
+I extended the previous approach to improve upon the performance concerns, which there are plenty of. 
+
+In a separate branch, I also (attempted) to add CNNs. It is 95% of the way there, but there's a few minor things
+which need checking, because MNIST is not training properly for some reason. 
+
+I also considered, as a prototype, adding stronger types to prevent incorrect dimension networks from being
+impossible. This however is still in it's earlier stages, and isn't yet in the repo. 
