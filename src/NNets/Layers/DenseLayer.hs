@@ -25,6 +25,7 @@ pattern DenseLayer' ws bs nn' <- (prj -> Just (DenseLayer ws bs nn'))
 -- forward propagates through the network up to this layer, then computing forward
 -- prop through this layer and appending the results to the front.
 instance AlgFwd DenseLayer where
+    algFwd :: DenseLayer (Vector -> NonEmpty Vector) -> Vector -> NonEmpty Vector
     algFwd (DenseLayer wl bl forwardPass) inp = 
         let vals :| vs = forwardPass inp
             !cvals = sigmoid ((wl #> vals) ^+^ bl)
@@ -61,6 +62,5 @@ instance (DenseLayer :<: f) => AlgBwd DenseLayer f where
 -- possible way.
 instance AlgPrint DenseLayer where
     algPrint (DenseLayer ws bs prevOutput) = thisLayer ++ prevOutput
-        where
-            thisLayer = unlines ["dense layer: ", "ws: ", show ws, "bs: ", 
-                                show bs, "--------------- \n"]
+        where thisLayer = unlines ["dense layer: ", "ws: ", show ws, "bs: ", 
+                                  show bs, "--------------- \n"]
