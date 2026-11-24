@@ -15,26 +15,26 @@ want an elegant data structure which allows for an elegant API. It turns out the
 #### Functors and folding
 
 A functor is something you can map over, i.e. apply the same function to every element inside.
-E.g. map (*2) [1,2,3] = [4,5,6]. 
+E.g. `map (*2) [1,2,3] = [4,5,6]`. 
 
 Our goal is to generalise recursion.
 
-Consider a list: List Int = Nil | Cons Int (List Int)
+Consider a list: `List Int = Nil | Cons Int (List Int)`
 This is recursive. Our goal is to remove the recursion from the type. So we can put it in another parameter: 
 
-ListF Int k = NilF | ConsF Int k
-now ListF Int is also a functor: the function would just touch the Int in the ConsF, and do nothing in the NilF
+`ListF Int k = NilF | ConsF Int k` 
+now `ListF Int` is also a functor: the function would just touch the `Int` in the `ConsF`, and do nothing in the `NilF`
 
-Seems kind of useless but we'll introduce something else to capture the recursion instead: Fix f = In (f (Fix f)), so now 
-[6, 7] = In (ConsF 6 (In (ConsF 7 (In NilF))))
+Seems kind of useless but we'll introduce something else to capture the recursion instead: `Fix f = In (f (Fix f))`, so now 
+`[6, 7] = In (ConsF 6 (In (ConsF 7 (In NilF))))`
 See how the 'In' constructor generalised the recursion using the parameter k. 
 
 Now that recursion has been generalised, we can also specify a very general way to fold and unfold over arbitrary types.
 A catamorphism is this generalised fold. Look at a general Fix f structure:
 
-In (f     (In f (In f (...)))      )
+`In (f     (In f (In f (...)))      )`
 
-if we had an f a -> a function (an algebra), we could collapse the inside part recursively to get an In (f a), then turn the 
+if we had an `f a -> a` function (an algebra), we could collapse the inside part recursively to get an `In (f a)`, then turn the 
 `f a -> a` to get an `a` out. 
 
 Similarly, an anamorphism is the generalised version of unfold: it would take a seed `b` and spit out a `Fix b`
@@ -99,6 +99,7 @@ So each DenseLayer is now actually an L (DenseLayer ...) and inputlayer is R (In
 associates right so there is only one way to get to each one, R R ... L. Handling this ourselves would be annoying so we can define smart constructors which will use the types to decide exactly which combination of L and R to put in: 
 
 ![alt text](docs/images/image-2.png)
+
 The subset here just means it's in the coproduct, e.g. DenseLayer :<: DenseLayer :+: InputLayer
 
 The result is a network definition looking like the following:
